@@ -19,6 +19,27 @@ export function workoutsRouter(db) {
     res.json(workouts);
   });
 
+  router.get('/:id/last-session', async (req, res) => {
+    const workout = await db.prepare(
+      'SELECT id FROM workouts WHERE id = ? AND user_id = ?'
+    ).get(req.params.id, req.userId);
+    if (!workout) return res.status(404).json({ error: 'Workout not found' });
+    const session = await db.prepare(`
+      SELECT s.id, s.workout_id, s.started_at, s.ended_at, w.name as workout_name
+      FROM sessions s
+      JOIN workouts w ON w.id = s.workout_id
+      WHERE s.workout_id = ? AND s.user_id = ? AND s.ended_at IS NOT NULL
+      ORDER BY s.ended_at DESC
+      LIMIT 1
+    `).get(req.params.id, req.userId);
+    if (!session) return res.json(null);
+    const logs = await db.prepare(`
+      SELECT id, workout_exercise_id, exercise_name, set_index, reps, weight_kg, logged_at
+      FROM exercise_logs WHERE session_id = ? ORDER BY logged_at
+    `).all(session.id);
+    res.json({ ...session, logs });
+  });
+
   router.get('/:id', async (req, res) => {
     const workout = await db.prepare(
       'SELECT id, name, slug, created_at, updated_at FROM workouts WHERE id = ? AND user_id = ?'

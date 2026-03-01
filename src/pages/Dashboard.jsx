@@ -5,8 +5,18 @@ import { motion } from 'framer-motion';
 import { Plus, Dumbbell, ChevronRight } from 'lucide-react';
 import { api } from '../api/client';
 
+function formatSessionDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
 export default function Dashboard() {
   const { data: workouts = [], isLoading } = useQuery('workouts', () => api.get('/workouts'));
+  const { data: sessions = [] } = useQuery('sessions', () => api.get('/sessions'));
+  const lastSession = sessions
+    .filter((s) => s.ended_at)
+    .sort((a, b) => (b.ended_at || 0) - (a.ended_at || 0))[0] ?? null;
 
   return (
     <div className="space-y-6">
@@ -27,6 +37,19 @@ export default function Dashboard() {
           New routine
         </Link>
       </motion.div>
+
+      {lastSession && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="rounded-xl border border-slab-850 bg-slab-900/80 px-4 py-3"
+        >
+          <p className="text-sm text-zinc-400 font-mono">
+            Last session: <span className="text-zinc-200">{lastSession.workout_name}</span>
+            <span className="text-zinc-500"> — ended {formatSessionDate(lastSession.ended_at)}</span>
+          </p>
+        </motion.div>
+      )}
 
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

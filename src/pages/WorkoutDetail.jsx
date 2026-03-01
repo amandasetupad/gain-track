@@ -17,6 +17,24 @@ import { api } from '../api/client';
 
 const isNew = (id) => id === 'new';
 
+function formatSessionDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
+function lastSetPerExercise(logs) {
+  if (!logs?.length) return {};
+  const byEx = {};
+  logs.forEach((log) => {
+    const exId = log.workout_exercise_id;
+    if (!byEx[exId] || (log.logged_at > (byEx[exId].logged_at || 0))) {
+      byEx[exId] = log;
+    }
+  });
+  return byEx;
+}
+
 export default function WorkoutDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -40,6 +58,12 @@ export default function WorkoutDetail() {
     ['workout', id],
     () => api.get(`/workouts/${id}`),
     { enabled: !isNew(id) }
+  );
+
+  const { data: lastSession } = useQuery(
+    ['workout', id, 'last-session'],
+    () => api.get(`/workouts/${id}/last-session`),
+    { enabled: !isNew(id) && !!workout?.id }
   );
 
   React.useEffect(() => {
@@ -148,6 +172,21 @@ export default function WorkoutDetail() {
         </div>
       </div>
 
+      {!isNew(id) && lastSession && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="rounded-xl border border-slab-850 bg-slab-900/80 px-4 py-3"
+        >
+          <p className="text-sm text-zinc-400 font-mono">
+            Last session ended <span className="text-zinc-200">{formatSessionDate(lastSession.ended_at)}</span>
+            {lastSession.logs?.length > 0 && (
+              <span className="text-zinc-500"> · {lastSession.logs.length} set{lastSession.logs.length !== 1 ? 's' : ''} logged</span>
+            )}
+          </p>
+        </motion.div>
+      )}
+
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -177,35 +216,53 @@ export default function WorkoutDetail() {
             </button>
           </div>
           <div className="space-y-2">
-            <AnimatePresence>
-              {exercises.map((ex, index) => (
-                <motion.div
-                  key={index}
-                  layout
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 8 }}
-                  className="flex items-center gap-2"
-                >
-                  <GripVertical className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={ex.name}
-                    onChange={(e) => updateExercise(index, 'name', e.target.value)}
-                    placeholder={`Exercise ${index + 1}`}
-                    className="flex-1 px-4 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeExercise(index)}
-                    className="p-2 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-slab-850"
-                    aria-label="Remove"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            {(() => {
+              const lastByEx = lastSetPerExercise(lastSession?.logs);
+              return (
+                <AnimatePresence>
+                  {exercises.map((ex, index) => {
+                    const last = ex.id ? lastByEx[ex.id] : null;
+                    const lastStr = last != null
+                      ? [last.reps != null && `${last.reps} reps`, last.weight_kg != null && `${last.weight_kg} kg`].filter(Boolean).join(' × ')
+                      : null;
+                    return (
+                      <motion.div
+                        key={index}
+                        layout
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <GripVertical className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                          <input
+                            type="text"
+                            value={ex.name}
+                            onChange={(e) => updateExercise(index, 'name', e.target.value)}
+                            placeholder={`Exercise ${index + 1}`}
+                            className="flex-1 px-4 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExercise(index)}
+                            className="p-2 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-slab-850"
+                            aria-label="Remove"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {lastStr && (
+                          <span className="text-xs font-mono text-zinc-500 sm:min-w-[8rem] pl-6 sm:pl-0">
+                            Last: {lastStr}
+                          </span>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              );
+            })()}
           </div>
         </div>
 

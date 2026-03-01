@@ -183,10 +183,12 @@ export default function History() {
             {sessions.slice(0, 10).map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between py-2 border-b border-slab-850 last:border-0 text-sm"
+                className="flex flex-wrap items-center justify-between gap-x-2 py-2 border-b border-slab-850 last:border-0 text-sm"
               >
                 <span className="text-zinc-300">{s.workout_name}</span>
-                <span className="text-zinc-500 font-mono">{formatDate(s.started_at)}</span>
+                <span className="text-zinc-500 font-mono">
+                  {s.ended_at ? `Ended ${formatDate(s.ended_at)}` : `Started ${formatDate(s.started_at)}`}
+                </span>
               </li>
             ))}
           </ul>

@@ -34,6 +34,7 @@ export default function WorkoutSession() {
         queryClient.invalidateQueries(['workout', id]);
         queryClient.invalidateQueries('history-exercise-names');
         queryClient.invalidateQueries('sessions');
+        queryClient.invalidateQueries(['workout', id, 'last-session']);
         navigate(`/workout/${id}`, {
           state: {
             message: 'Session ended. Your sets were saved. View reps & weight in Progress.',
