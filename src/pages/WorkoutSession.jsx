@@ -148,8 +148,19 @@ export default function WorkoutSession() {
     }
   }, [sessionId, exercises, logs]);
 
+  const hasAnyLoggedData = React.useMemo(() => {
+    return exercises.some((ex) =>
+      (logs[ex.id] || []).some(
+        (set) =>
+          set.saved ||
+          (set.reps !== '' && set.reps != null) ||
+          (set.weight_kg !== '' && set.weight_kg != null)
+      )
+    );
+  }, [exercises, logs]);
+
   const handleEndSession = useCallback(async () => {
-    if (isEnding || endSessionMutation.isLoading) return;
+    if (isEnding || endSessionMutation.isLoading || !hasAnyLoggedData) return;
     setIsEnding(true);
     try {
       await saveAllUnsavedSets();
@@ -157,7 +168,7 @@ export default function WorkoutSession() {
     } finally {
       setIsEnding(false);
     }
-  }, [saveAllUnsavedSets, endSessionMutation, isEnding]);
+  }, [saveAllUnsavedSets, endSessionMutation, isEnding, hasAnyLoggedData]);
 
   if (isLoading || !workout) {
     return (
@@ -269,11 +280,14 @@ export default function WorkoutSession() {
         </AnimatePresence>
       </div>
 
-      <div className="pt-6 border-t border-slab-850 flex justify-center sm:justify-end pb-8">
+      <div className="pt-6 border-t border-slab-850 flex flex-col items-center sm:items-end gap-2 pb-8">
+        {!hasAnyLoggedData && (
+          <p className="text-zinc-500 text-sm font-mono">Log at least one set (reps or weight) to end the session.</p>
+        )}
         <button
           onClick={() => handleEndSession()}
-          disabled={isEnding || endSessionMutation.isLoading}
-          className="flex items-center gap-2 px-6 py-3 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors font-mono text-sm"
+          disabled={isEnding || endSessionMutation.isLoading || !hasAnyLoggedData}
+          className="flex items-center gap-2 px-6 py-3 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors font-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <StopCircle className="w-5 h-5" />
           End session
