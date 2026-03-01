@@ -13,7 +13,7 @@ A modern, responsive workout tracking web app with account-based persistence, re
 ## Tech Stack
 
 - **Frontend:** React, Vite, Tailwind CSS, Framer Motion, Recharts, React Query, React Router
-- **Backend:** Express, SQLite (better-sqlite3), JWT auth, bcrypt
+- **Backend:** Express, SQLite (sql.js — pure JS, no native binary), JWT auth, bcrypt
 
 ## Setup
 
@@ -56,26 +56,11 @@ After that, the live site will call your Render backend for auth and data instea
 
 **Alternative (no env var):** In `src/api/client.js`, set `PRODUCTION_BACKEND_URL` to your actual Render URL (e.g. `https://gain-track-xxxx.onrender.com`), then push to GitHub so Vercel redeploys.
 
-## Render: Fix "invalid ELF header" (better-sqlite3)
+## Render: No native binaries
 
-If your backend on Render crashes with:
+The backend uses **sql.js** (pure JS/WASM, no native binary). Build and run on Render without ELF issues. Build: `npm install`; start: `node server/index.js`.
 
-`Error: .../better_sqlite3.node: invalid ELF header`
 
-Render is using a **cached build** that still has Mac (or wrong) binaries. `better-sqlite3` is a native module and must be compiled on Render’s Linux environment.
-
-**Do this:**
-
-1. **Clear build cache:** In the Render dashboard → your Web Service → **Settings** → scroll to **Build & Deploy** → click **Clear build cache**.
-2. **Redeploy:** **Manual Deploy** → **Deploy latest commit** (or push a new commit so it auto-deploys).
-
-That forces a fresh `npm install` and compiles `better-sqlite3` for Linux.
-
-**Optional:** In Render, set **Build Command** to:
-
-`npm install && npm rebuild better-sqlite3`
-
-so the native module is rebuilt explicitly after install.
 
 ## Environment
 

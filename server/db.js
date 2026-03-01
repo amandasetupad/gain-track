@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
-import { mkdirSync, existsSync } from 'fs';
+import initSqlJs from 'sql.js';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -8,7 +8,70 @@ const dataDir = join(__dirname, 'data');
 if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 const dbPath = join(dataDir, 'workouts.db');
 
-export const db = new Database(dbPath);
+// Load sql.js (pure JS/WASM — no native binary; works on Render)
+const SQL = await initSqlJs();
+let data = null;
+try {
+  data = readFileSync(dbPath);
+} catch {
+  // New database
+}
+const internalDb = new SQL.Database(data);
+
+function save() {
+  const buffer = internalDb.export();
+  writeFileSync(dbPath, Buffer.from(buffer));
+}
+
+// Expose better-sqlite3–style API so routes don't need to change
+export const db = {
+  exec(sql) {
+    internalDb.run(sql);
+    save();
+  },
+  prepare(sql) {
+    return {
+      run(...params) {
+        if (params.length > 0) {
+          internalDb.run(sql, params);
+        } else {
+          internalDb.run(sql);
+        }
+        save();
+        return { changes: internalDb.getRowsModified() };
+      },
+      get(...params) {
+        const stmt = internalDb.prepare(sql);
+        try {
+          if (params.length > 0) {
+            stmt.bind(params);
+          }
+          if (stmt.step()) {
+            return stmt.getAsObject();
+          }
+          return undefined;
+        } finally {
+          stmt.free();
+        }
+      },
+      all(...params) {
+        const stmt = internalDb.prepare(sql);
+        const rows = [];
+        try {
+          if (params.length > 0) {
+            stmt.bind(params);
+          }
+          while (stmt.step()) {
+            rows.push(stmt.getAsObject());
+          }
+          return rows;
+        } finally {
+          stmt.free();
+        }
+      },
+    };
+  },
+};
 
 // Ensure tables exist on first run
 db.exec(`

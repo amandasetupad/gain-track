@@ -21,7 +21,7 @@ authRouter.post('/register', (req, res) => {
     const token = jwt.sign({ userId: id }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ token, userId: id, email: email.trim().toLowerCase() });
   } catch (e) {
-    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' || (e.message && e.message.includes('UNIQUE'))) {
       return res.status(409).json({ error: 'Email already registered' });
     }
     throw e;
