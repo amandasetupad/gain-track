@@ -9,11 +9,20 @@ import { authMiddleware } from './middleware/auth.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Whitelist your Vercel frontend in production. Comma-separated for multiple origins.
+// CORS: allow Vercel frontend(s). If CORS_ORIGIN is set, use it; else allow localhost + any *.vercel.app
 const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
   : ['http://localhost:5173'];
-app.use(cors({ origin: corsOrigins, credentials: true }));
+const corsOptions = {
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (corsOrigins.includes(origin)) return cb(null, true);
+    if (origin.endsWith('.vercel.app')) return cb(null, true);
+    return cb(null, false);
+  },
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.use('/api/auth', authRouter);
