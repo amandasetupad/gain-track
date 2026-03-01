@@ -41,6 +41,12 @@ export function AuthProvider({ children }) {
     loadUser();
   }, [loadUser]);
 
+  useEffect(() => {
+    const onLogout = () => setUser(null);
+    window.addEventListener('auth:logout', onLogout);
+    return () => window.removeEventListener('auth:logout', onLogout);
+  }, []);
+
   const login = useCallback(async (email, password) => {
     const res = await fetch(`${AUTH_API}/auth/login`, {
       method: 'POST',

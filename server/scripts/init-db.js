@@ -1,4 +1,9 @@
-// Loading db.js creates the schema (CREATE TABLE IF NOT EXISTS). No separate DB binary.
-import '../db.js';
+import { initDb } from '../db.js';
 
-console.log('Database initialized (schema ensured via server/db.js).');
+await initDb();
+console.log('Database initialized (schema ensured).');
+if (process.env.DATABASE_URL) {
+  console.log('Using PostgreSQL (DATABASE_URL).');
+} else {
+  console.log('Using SQLite (server/data/workouts.db).');
+}

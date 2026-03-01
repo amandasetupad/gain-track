@@ -41,7 +41,7 @@ function headers(includeAuth = true) {
 export const MSG_BACKEND_NOT_CONFIGURED =
   "Sign up won't work until the backend is set. In Vercel: add env var VITE_API_URL = your backend URL (e.g. https://your-app.onrender.com), then redeploy. Deploy the backend first (e.g. on Render.com).";
 
-async function handleRes(res) {
+async function handleRes(res, requestUrl = '') {
   const data = await res.json().catch(() => ({}));
   if (DEBUG && typeof window !== 'undefined' && !res.ok) {
     console.error('[GainTrack] Request failed:', {
@@ -55,6 +55,13 @@ async function handleRes(res) {
     }
   }
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== 'undefined') {
+      const u = requestUrl || res.url || '';
+      if (!u.includes('/auth/login') && !u.includes('/auth/register')) {
+        localStorage.removeItem('token');
+        window.dispatchEvent(new CustomEvent('auth:logout'));
+      }
+    }
     const err = { status: res.status, ...data };
     if (res.status === 404) err.error = MSG_BACKEND_NOT_CONFIGURED;
     throw err;
@@ -67,7 +74,7 @@ export const api = {
     const url = getBase() + path;
     if (DEBUG && typeof window !== 'undefined') console.log('[GainTrack] GET', url);
     const res = await fetch(url, { headers: headers(auth) });
-    return handleRes(res);
+    return handleRes(res, url);
   },
   async post(path, body, auth = true) {
     const url = getBase() + path;
@@ -77,7 +84,7 @@ export const api = {
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
     });
-    return handleRes(res);
+    return handleRes(res, url);
   },
   async put(path, body, auth = true) {
     const url = getBase() + path;
@@ -87,7 +94,7 @@ export const api = {
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
     });
-    return handleRes(res);
+    return handleRes(res, url);
   },
   async patch(path, body, auth = true) {
     const url = getBase() + path;
@@ -97,14 +104,14 @@ export const api = {
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
     });
-    return handleRes(res);
+    return handleRes(res, url);
   },
   async delete(path, auth = true) {
     const url = getBase() + path;
     if (DEBUG && typeof window !== 'undefined') console.log('[GainTrack] DELETE', url);
     const res = await fetch(url, { method: 'DELETE', headers: headers(auth) });
     if (res.status === 204) return;
-    return handleRes(res);
+    return handleRes(res, url);
   },
 };
 

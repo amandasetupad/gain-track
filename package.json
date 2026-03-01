@@ -24,7 +24,8 @@
     "react-router-dom": "^6.28.0",
     "recharts": "^2.13.3",
     "framer-motion": "^11.11.17",
-    "lucide-react": "^0.460.0"
+    "lucide-react": "^0.460.0",
+    "pg": "^8.13.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",

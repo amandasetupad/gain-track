@@ -60,6 +60,18 @@ After that, the live site will call your Render backend for auth and data instea
 
 The backend uses **sql.js** (pure JS/WASM, no native binary). Build and run on Render without ELF issues. Build: `npm install`; start: `node server/index.js`.
 
+## Keeping your data (accounts & workouts) on Render
+
+On Render’s **free tier**, the app defaults to **SQLite on the local disk**, which is **ephemeral**: restarts and redeploys wipe the DB and all accounts/workouts/logs are lost.
+
+**To keep accounts and data across restarts**, use **PostgreSQL**:
+
+1. In Render, create a **PostgreSQL** database (Dashboard → New → PostgreSQL). Note the internal URL or use the connection string from the database’s “Info” tab.
+2. In your **Web Service** (the API), add an environment variable: **`DATABASE_URL`** = that connection string (e.g. `postgresql://user:pass@host/dbname`).
+3. Redeploy the backend. On startup the app will create the tables in PostgreSQL and use it instead of SQLite. Data will persist across restarts.
+
+If you see **401** when saving a workout or loading the app, it usually means your session is no longer valid (e.g. backend was using SQLite and restarted). The app will clear the token and send you to the login screen so you can sign in or create a new account.
+
 
 
 ## Environment
@@ -70,6 +82,7 @@ The backend uses **sql.js** (pure JS/WASM, no native binary). Build and run on R
 
 **Backend (Render)** — add in Service → Environment:
 
+- `DATABASE_URL` — (Optional.) PostgreSQL connection string from Render’s PostgreSQL database. If set, the app uses PostgreSQL and data persists across restarts; if unset, it uses SQLite on the ephemeral disk.
 - `CORS_ORIGIN` — Your Vercel frontend URL, e.g. `https://your-workout-site.vercel.app`. Comma-separated for multiple origins.
 - `JWT_SECRET` — Strong secret for JWT (required in production).
 - `PORT` — Set automatically by Render; optional locally (default `3001`).

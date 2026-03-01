@@ -8,73 +8,22 @@ const dataDir = join(__dirname, 'data');
 if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 const dbPath = join(dataDir, 'workouts.db');
 
-// Load sql.js (pure JS/WASM — no native binary; works on Render)
-const SQL = await initSqlJs();
-let data = null;
-try {
-  data = readFileSync(dbPath);
-} catch {
-  // New database
-}
-const internalDb = new SQL.Database(data);
+async function createSqliteDb() {
+  const SQL = await initSqlJs();
+  let data = null;
+  try {
+    data = readFileSync(dbPath);
+  } catch {
+    // New database
+  }
+  const internalDb = new SQL.Database(data);
 
-function save() {
-  const buffer = internalDb.export();
-  writeFileSync(dbPath, Buffer.from(buffer));
-}
+  function save() {
+    const buffer = internalDb.export();
+    writeFileSync(dbPath, Buffer.from(buffer));
+  }
 
-// Expose better-sqlite3–style API so routes don't need to change
-export const db = {
-  exec(sql) {
-    internalDb.run(sql);
-    save();
-  },
-  prepare(sql) {
-    return {
-      run(...params) {
-        if (params.length > 0) {
-          internalDb.run(sql, params);
-        } else {
-          internalDb.run(sql);
-        }
-        save();
-        return { changes: internalDb.getRowsModified() };
-      },
-      get(...params) {
-        const stmt = internalDb.prepare(sql);
-        try {
-          if (params.length > 0) {
-            stmt.bind(params);
-          }
-          if (stmt.step()) {
-            return stmt.getAsObject();
-          }
-          return undefined;
-        } finally {
-          stmt.free();
-        }
-      },
-      all(...params) {
-        const stmt = internalDb.prepare(sql);
-        const rows = [];
-        try {
-          if (params.length > 0) {
-            stmt.bind(params);
-          }
-          while (stmt.step()) {
-            rows.push(stmt.getAsObject());
-          }
-          return rows;
-        } finally {
-          stmt.free();
-        }
-      },
-    };
-  },
-};
-
-// Ensure tables exist on first run
-db.exec(`
+  const schema = `
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
@@ -124,4 +73,58 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_exercise_logs_session ON exercise_logs(session_id);
   CREATE INDEX IF NOT EXISTS idx_exercise_logs_exercise ON exercise_logs(workout_exercise_id);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_workouts_slug ON workouts(slug);
-`);
+`;
+  for (const sql of schema.split(';').map((s) => s.trim()).filter(Boolean)) {
+    if (sql) internalDb.run(sql);
+  }
+  save();
+
+  return {
+    exec(sql) {
+      internalDb.run(sql);
+      save();
+    },
+    prepare(sql) {
+      return {
+        async run(...params) {
+          if (params.length > 0) {
+            internalDb.run(sql, params);
+          } else {
+            internalDb.run(sql);
+          }
+          save();
+          return { changes: internalDb.getRowsModified() };
+        },
+        async get(...params) {
+          const stmt = internalDb.prepare(sql);
+          try {
+            if (params.length > 0) stmt.bind(params);
+            if (stmt.step()) return stmt.getAsObject();
+            return undefined;
+          } finally {
+            stmt.free();
+          }
+        },
+        async all(...params) {
+          const stmt = internalDb.prepare(sql);
+          const rows = [];
+          try {
+            if (params.length > 0) stmt.bind(params);
+            while (stmt.step()) rows.push(stmt.getAsObject());
+            return rows;
+          } finally {
+            stmt.free();
+          }
+        },
+      };
+    },
+  };
+}
+
+export async function initDb() {
+  if (process.env.DATABASE_URL) {
+    const { createPgDb } = await import('./db-pg.js');
+    return createPgDb();
+  }
+  return createSqliteDb();
+}

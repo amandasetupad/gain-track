@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { initDb } from './db.js';
 import { authRouter } from './routes/auth.js';
 import { workoutsRouter } from './routes/workouts.js';
 import { sessionsRouter } from './routes/sessions.js';
@@ -18,7 +19,6 @@ const corsOptions = {
     if (!origin) return cb(null, true);
     if (corsOrigins.includes(origin)) return cb(null, true);
     if (origin.endsWith('.vercel.app')) return cb(null, true);
-    // Production: allow any HTTPS origin so gain-track-two, no-gain-no-pain, etc. all work
     if (process.env.NODE_ENV === 'production' && origin.startsWith('https://')) return cb(null, true);
     return cb(null, false);
   },
@@ -28,13 +28,23 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-app.use('/api/auth', authRouter);
-app.use('/api/workouts', authMiddleware, workoutsRouter);
-app.use('/api/sessions', authMiddleware, sessionsRouter);
-app.use('/api/share', shareRouter);
+async function start() {
+  const db = await initDb();
+  console.log(process.env.DATABASE_URL ? 'Using PostgreSQL (DATABASE_URL)' : 'Using SQLite (server/data/workouts.db)');
 
-app.get('/api/health', (_, res) => res.json({ ok: true }));
+  app.use('/api/auth', authRouter(db));
+  app.use('/api/workouts', authMiddleware, workoutsRouter(db));
+  app.use('/api/sessions', authMiddleware, sessionsRouter(db));
+  app.use('/api/share', shareRouter(db));
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  app.get('/api/health', (_, res) => res.json({ ok: true }));
+
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
