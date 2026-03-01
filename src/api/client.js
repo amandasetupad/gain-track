@@ -5,34 +5,25 @@
 // Then redeploy so the build picks it up.
 // Option 2: Replace the URL below with your actual Render backend URL and push to GitHub.
 const PRODUCTION_BACKEND_URL = 'https://gain-track.onrender.com';
+const API_PATH = '/api';
+const DEBUG = true; // Set to false to silence debug logs
 
-function getApiBase() {
+function getBase() {
+  if (typeof window === 'undefined') return PRODUCTION_BACKEND_URL + API_PATH;
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return API_PATH;
   const fromEnv = import.meta.env.VITE_API_URL;
   if (fromEnv && String(fromEnv).trim()) {
-    return `${String(fromEnv).replace(/\/$/, '')}/api`;
+    return `${String(fromEnv).replace(/\/$/, '')}${API_PATH}`;
   }
-  if (import.meta.env.PROD) {
-    return `${PRODUCTION_BACKEND_URL.replace(/\/$/, '')}/api`;
-  }
-  return '/api'; // dev: Vite proxy forwards to backend
+  return `${PRODUCTION_BACKEND_URL.replace(/\/$/, '')}${API_PATH}`;
 }
 
-// When the app is on Vercel, always use the Render backend (fixes 404 for sign up / log in)
-function resolveApiBase() {
-  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-    return `${PRODUCTION_BACKEND_URL.replace(/\/$/, '')}/api`;
-  }
-  return getApiBase();
-}
-
-const getBase = () => resolveApiBase();
-
-// Log API base once so you can confirm in Console that we're calling Render, not Vercel
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && DEBUG) {
   const base = getBase();
-  if (base.startsWith('http')) {
-    console.log('GainTrack API:', base);
-  }
+  console.log('[GainTrack] API base URL:', base);
+  console.log('[GainTrack] Current origin:', window.location.origin);
+  console.log('[GainTrack] If sign-up fails, requests must go to', PRODUCTION_BACKEND_URL + API_PATH, '— check Network tab for the actual request URL.');
 }
 
 function getToken() {
@@ -53,6 +44,17 @@ export const MSG_BACKEND_NOT_CONFIGURED =
 
 async function handleRes(res) {
   const data = await res.json().catch(() => ({}));
+  if (DEBUG && typeof window !== 'undefined' && !res.ok) {
+    console.error('[GainTrack] Request failed:', {
+      url: res.url,
+      status: res.status,
+      statusText: res.statusText,
+      body: data,
+    });
+    if (res.status === 404) {
+      console.error('[GainTrack] 404 = backend not found. If url is your Vercel domain, the app is calling the wrong server. It should be', PRODUCTION_BACKEND_URL);
+    }
+  }
   if (!res.ok) {
     const err = { status: res.status, ...data };
     if (res.status === 404) err.error = MSG_BACKEND_NOT_CONFIGURED;
@@ -63,11 +65,15 @@ async function handleRes(res) {
 
 export const api = {
   async get(path, auth = true) {
-    const res = await fetch(getBase() + path, { headers: headers(auth) });
+    const url = getBase() + path;
+    if (DEBUG && typeof window !== 'undefined') console.log('[GainTrack] GET', url);
+    const res = await fetch(url, { headers: headers(auth) });
     return handleRes(res);
   },
   async post(path, body, auth = true) {
-    const res = await fetch(getBase() + path, {
+    const url = getBase() + path;
+    if (DEBUG && typeof window !== 'undefined') console.log('[GainTrack] POST', url);
+    const res = await fetch(url, {
       method: 'POST',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -75,7 +81,9 @@ export const api = {
     return handleRes(res);
   },
   async put(path, body, auth = true) {
-    const res = await fetch(getBase() + path, {
+    const url = getBase() + path;
+    if (DEBUG && typeof window !== 'undefined') console.log('[GainTrack] PUT', url);
+    const res = await fetch(url, {
       method: 'PUT',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -83,7 +91,9 @@ export const api = {
     return handleRes(res);
   },
   async patch(path, body, auth = true) {
-    const res = await fetch(getBase() + path, {
+    const url = getBase() + path;
+    if (DEBUG && typeof window !== 'undefined') console.log('[GainTrack] PATCH', url);
+    const res = await fetch(url, {
       method: 'PATCH',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -91,7 +101,9 @@ export const api = {
     return handleRes(res);
   },
   async delete(path, auth = true) {
-    const res = await fetch(getBase() + path, { method: 'DELETE', headers: headers(auth) });
+    const url = getBase() + path;
+    if (DEBUG && typeof window !== 'undefined') console.log('[GainTrack] DELETE', url);
+    const res = await fetch(url, { method: 'DELETE', headers: headers(auth) });
     if (res.status === 204) return;
     return handleRes(res);
   },
