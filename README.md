@@ -54,6 +54,8 @@ If your app is live on Vercel (e.g. `no-gain-no-pain.vercel.app`) and **Register
 
 After that, the live site will call your Render backend for auth and data instead of Vercel, and registration will work.
 
+**Alternative (no env var):** In `src/api/client.js`, set `PRODUCTION_BACKEND_URL` to your actual Render URL (e.g. `https://gain-track-xxxx.onrender.com`), then push to GitHub so Vercel redeploys.
+
 ## Environment
 
 **Frontend (Vercel)** — add in Project → Settings → Environment Variables:

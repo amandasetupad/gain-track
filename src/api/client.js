@@ -1,9 +1,21 @@
-// In dev, Vite proxies /api to the backend. In production you MUST set VITE_API_URL to your
-// Render (or other) backend URL, e.g. https://your-app.onrender.com — otherwise /api hits
-// Vercel and returns 404 (no backend there).
-const API_BASE = import.meta.env.VITE_API_URL
-  ? `${String(import.meta.env.VITE_API_URL).replace(/\/$/, '')}/api`
-  : '/api';
+// --- Sign-up / API URL fix ---
+// In production, the app must call your live backend (e.g. on Render), not Vercel.
+// Option 1 (recommended): In Vercel → Settings → Environment Variables, add:
+//   VITE_API_URL = https://your-backend-name.onrender.com
+// Then redeploy so the build picks it up.
+// Option 2: Replace the URL below with your actual Render backend URL and push to GitHub.
+const PRODUCTION_BACKEND_URL = 'https://your-backend-name.onrender.com';
+
+const API_BASE = (() => {
+  const fromEnv = import.meta.env.VITE_API_URL;
+  if (fromEnv && String(fromEnv).trim()) {
+    return `${String(fromEnv).replace(/\/$/, '')}/api`;
+  }
+  if (import.meta.env.PROD) {
+    return `${PRODUCTION_BACKEND_URL.replace(/\/$/, '')}/api`;
+  }
+  return '/api'; // dev: Vite proxy forwards to backend
+})();
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL && typeof window !== 'undefined') {
   console.warn(
@@ -24,14 +36,14 @@ function headers(includeAuth = true) {
   return h;
 }
 
-const MSG_404_BACKEND =
-  "Backend not reachable. In Vercel: set VITE_API_URL to your backend URL (e.g. https://your-app.onrender.com), then redeploy. Also ensure the backend is deployed (e.g. on Render).";
+export const MSG_BACKEND_NOT_CONFIGURED =
+  "Sign up won't work until the backend is set. In Vercel: add env var VITE_API_URL = your backend URL (e.g. https://your-app.onrender.com), then redeploy. Deploy the backend first (e.g. on Render.com).";
 
 async function handleRes(res) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = { status: res.status, ...data };
-    if (res.status === 404) err.error = MSG_404_BACKEND;
+    if (res.status === 404) err.error = MSG_BACKEND_NOT_CONFIGURED;
     throw err;
   }
   return data;

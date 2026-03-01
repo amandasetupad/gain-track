@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Dumbbell, Mail, Lock, UserPlus } from 'lucide-react';
+import { Dumbbell, Mail, Lock, UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { MSG_BACKEND_NOT_CONFIGURED } from '../api/client';
+
+const isBackendConfigured = () =>
+  typeof import.meta.env.VITE_API_URL === 'string' && import.meta.env.VITE_API_URL.length > 0;
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -20,9 +24,10 @@ export default function Register() {
       await register(email, password);
       navigate('/');
     } catch (err) {
+      const backendMsg = MSG_BACKEND_NOT_CONFIGURED;
       setError(
-        err.status === 404
-          ? 'Backend not reachable. In Vercel: set VITE_API_URL to your backend URL (e.g. https://your-app.onrender.com), then redeploy. Also ensure the backend is deployed (e.g. on Render).'
+        err.status === 404 || (import.meta.env.PROD && !isBackendConfigured())
+          ? backendMsg
           : err.error || 'Registration failed'
       );
     } finally {
@@ -43,6 +48,12 @@ export default function Register() {
           <span className="font-mono text-xl font-semibold text-zinc-100">GainTrack</span>
         </div>
         <div className="bg-slab-900 border border-slab-850 rounded-xl p-6 shadow-xl">
+          {import.meta.env.PROD && !isBackendConfigured() && (
+            <div className="mb-4 flex gap-2 rounded-lg bg-amber-500/15 border border-amber-500/40 p-3 text-amber-200 text-sm">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <p>{MSG_BACKEND_NOT_CONFIGURED}</p>
+            </div>
+          )}
           <h1 className="text-lg font-semibold text-zinc-100 mb-6">Create account</h1>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
