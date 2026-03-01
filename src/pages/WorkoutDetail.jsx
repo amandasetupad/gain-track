@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,10 +19,19 @@ const isNew = (id) => id === 'new';
 export default function WorkoutDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [exercises, setExercises] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState(null);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setBannerMessage(location.state.message);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state?.message, location.pathname, navigate]);
 
   const { data: workout, isLoading } = useQuery(
     ['workout', id],
@@ -103,6 +112,11 @@ export default function WorkoutDetail() {
 
   return (
     <div className="space-y-6">
+      {bannerMessage && (
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 px-4 py-2 text-sm font-mono">
+          {bannerMessage}
+        </div>
+      )}
       <div className="flex items-center gap-4">
         <Link
           to="/"

@@ -33,6 +33,13 @@ export default function WorkoutSession() {
         queryClient.invalidateQueries(['workout', id]);
         navigate(`/workout/${id}`);
       },
+      onError: (err) => {
+        if (err?.status === 404) {
+          queryClient.invalidateQueries('workouts');
+          queryClient.invalidateQueries(['workout', id]);
+          navigate(`/workout/${id}`, { state: { message: 'Session ended or no longer found (e.g. after server restart).' } });
+        }
+      },
     }
   );
 

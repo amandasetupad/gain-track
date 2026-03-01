@@ -29,6 +29,42 @@ sessionsRouter.get('/', (req, res) => {
   res.json(sessions);
 });
 
+sessionsRouter.get('/history/exercise/:workoutExerciseId', (req, res) => {
+  const { workoutExerciseId } = req.params;
+  const logs = db.prepare(`
+    SELECT el.reps, el.weight_kg, el.set_index, el.logged_at, s.started_at
+    FROM exercise_logs el
+    JOIN sessions s ON s.id = el.session_id
+    WHERE el.workout_exercise_id = ? AND s.user_id = ?
+    ORDER BY el.logged_at ASC
+  `).all(workoutExerciseId, req.userId);
+  res.json(logs);
+});
+
+sessionsRouter.get('/history/exercise-names', (req, res) => {
+  const rows = db.prepare(`
+    SELECT DISTINCT el.exercise_name
+    FROM exercise_logs el
+    JOIN sessions s ON s.id = el.session_id
+    WHERE s.user_id = ?
+    ORDER BY el.exercise_name
+  `).all(req.userId);
+  res.json(rows.map((r) => r.exercise_name));
+});
+
+sessionsRouter.get('/history/by-name', (req, res) => {
+  const exerciseName = req.query.exerciseName;
+  if (!exerciseName?.trim()) return res.status(400).json({ error: 'exerciseName query required' });
+  const logs = db.prepare(`
+    SELECT el.id, el.reps, el.weight_kg, el.set_index, el.logged_at, el.exercise_name, s.started_at, s.id as session_id
+    FROM exercise_logs el
+    JOIN sessions s ON s.id = el.session_id
+    WHERE s.user_id = ? AND el.exercise_name = ?
+    ORDER BY el.logged_at ASC
+  `).all(req.userId, exerciseName.trim());
+  res.json(logs);
+});
+
 sessionsRouter.get('/:id', (req, res) => {
   const session = db.prepare(`
     SELECT s.*, w.name as workout_name
@@ -67,40 +103,4 @@ sessionsRouter.post('/:id/logs', (req, res) => {
   `).run(id, req.params.id, workout_exercise_id, exercise_name, set_index ?? null, reps ?? null, weight_kg ?? null);
   const log = db.prepare('SELECT * FROM exercise_logs WHERE id = ?').get(id);
   res.status(201).json(log);
-});
-
-sessionsRouter.get('/history/exercise/:workoutExerciseId', (req, res) => {
-  const { workoutExerciseId } = req.params;
-  const logs = db.prepare(`
-    SELECT el.reps, el.weight_kg, el.set_index, el.logged_at, s.started_at
-    FROM exercise_logs el
-    JOIN sessions s ON s.id = el.session_id
-    WHERE el.workout_exercise_id = ? AND s.user_id = ?
-    ORDER BY el.logged_at ASC
-  `).all(workoutExerciseId, req.userId);
-  res.json(logs);
-});
-
-sessionsRouter.get('/history/exercise-names', (req, res) => {
-  const rows = db.prepare(`
-    SELECT DISTINCT el.exercise_name
-    FROM exercise_logs el
-    JOIN sessions s ON s.id = el.session_id
-    WHERE s.user_id = ?
-    ORDER BY el.exercise_name
-  `).all(req.userId);
-  res.json(rows.map((r) => r.exercise_name));
-});
-
-sessionsRouter.get('/history/by-name', (req, res) => {
-  const exerciseName = req.query.exerciseName;
-  if (!exerciseName?.trim()) return res.status(400).json({ error: 'exerciseName query required' });
-  const logs = db.prepare(`
-    SELECT el.id, el.reps, el.weight_kg, el.set_index, el.logged_at, el.exercise_name, s.started_at, s.id as session_id
-    FROM exercise_logs el
-    JOIN sessions s ON s.id = el.session_id
-    WHERE s.user_id = ? AND el.exercise_name = ?
-    ORDER BY el.logged_at ASC
-  `).all(req.userId, exerciseName.trim());
-  res.json(logs);
 });
