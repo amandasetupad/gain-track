@@ -40,6 +40,20 @@ The database is created automatically on first run in `server/data/workouts.db`.
 | `npm run build` | Production frontend build    |
 | `npm run db:init` | Initialize DB (optional)   |
 
+## Deploying: Fix "404" on Register / Login (Vercel)
+
+If your app is live on Vercel (e.g. `no-gain-no-pain.vercel.app`) and **Register** or **Login** returns **404**, the frontend is calling `/api` on the same domain. Vercel only hosts the React app; the Express backend is not there.
+
+**Do this:**
+
+1. **Deploy the backend** to [Render](https://render.com) (or another host): connect your repo, choose "Web Service", set build to `npm install` and start to `node server/index.js`, add env vars `CORS_ORIGIN` and `JWT_SECRET`, then deploy. Copy the service URL (e.g. `https://gain-track-api.onrender.com`).
+2. **In Vercel:** open your project → **Settings** → **Environment Variables**. Add:
+   - **Name:** `VITE_API_URL`  
+   - **Value:** your backend URL, e.g. `https://gain-track-api.onrender.com` (no trailing slash).
+3. **Redeploy** the Vercel project (e.g. trigger a new deployment from the Deployments tab). Vite bakes `VITE_API_URL` at build time, so a new build is required after adding it.
+
+After that, the live site will call your Render backend for auth and data instead of Vercel, and registration will work.
+
 ## Environment
 
 **Frontend (Vercel)** — add in Project → Settings → Environment Variables:
