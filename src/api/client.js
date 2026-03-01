@@ -6,7 +6,7 @@
 // Option 2: Replace the URL below with your actual Render backend URL and push to GitHub.
 const PRODUCTION_BACKEND_URL = 'https://gain-track.onrender.com';
 
-const API_BASE = (() => {
+function getApiBase() {
   const fromEnv = import.meta.env.VITE_API_URL;
   if (fromEnv && String(fromEnv).trim()) {
     return `${String(fromEnv).replace(/\/$/, '')}/api`;
@@ -15,7 +15,18 @@ const API_BASE = (() => {
     return `${PRODUCTION_BACKEND_URL.replace(/\/$/, '')}/api`;
   }
   return '/api'; // dev: Vite proxy forwards to backend
-})();
+}
+
+// When the app is on Vercel, always use the Render backend (fixes 404 even with old/cached builds)
+function resolveApiBase() {
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')) {
+    return `${PRODUCTION_BACKEND_URL.replace(/\/$/, '')}/api`;
+  }
+  return getApiBase();
+}
+
+// Use resolveApiBase() per request so runtime fix applies even with cached/old builds
+const getBase = () => resolveApiBase();
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL && typeof window !== 'undefined') {
   console.warn(
@@ -51,11 +62,11 @@ async function handleRes(res) {
 
 export const api = {
   async get(path, auth = true) {
-    const res = await fetch(API_BASE + path, { headers: headers(auth) });
+    const res = await fetch(getBase() + path, { headers: headers(auth) });
     return handleRes(res);
   },
   async post(path, body, auth = true) {
-    const res = await fetch(API_BASE + path, {
+    const res = await fetch(getBase() + path, {
       method: 'POST',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -63,7 +74,7 @@ export const api = {
     return handleRes(res);
   },
   async put(path, body, auth = true) {
-    const res = await fetch(API_BASE + path, {
+    const res = await fetch(getBase() + path, {
       method: 'PUT',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -71,7 +82,7 @@ export const api = {
     return handleRes(res);
   },
   async patch(path, body, auth = true) {
-    const res = await fetch(API_BASE + path, {
+    const res = await fetch(getBase() + path, {
       method: 'PATCH',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -79,7 +90,7 @@ export const api = {
     return handleRes(res);
   },
   async delete(path, auth = true) {
-    const res = await fetch(API_BASE + path, { method: 'DELETE', headers: headers(auth) });
+    const res = await fetch(getBase() + path, { method: 'DELETE', headers: headers(auth) });
     if (res.status === 204) return;
     return handleRes(res);
   },
