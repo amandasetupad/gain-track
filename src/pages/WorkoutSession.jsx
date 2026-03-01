@@ -19,6 +19,12 @@ export default function WorkoutSession() {
     { enabled: !!id && id !== 'new' }
   );
 
+  const { data: lastSession } = useQuery(
+    ['workout', id, 'last-session'],
+    () => api.get(`/workouts/${id}/last-session`),
+    { enabled: !!id && !!workout?.id }
+  );
+
   const startSessionMutation = useMutation(
     () => api.post('/sessions', { workoutId: id }),
     {
@@ -70,6 +76,16 @@ export default function WorkoutSession() {
   );
 
   const exercises = workout?.exercises || [];
+
+  const lastSetByExercise = React.useMemo(() => {
+    const logs = lastSession?.logs || [];
+    const byEx = {};
+    logs.forEach((log) => {
+      const exId = log.workout_exercise_id;
+      if (!byEx[exId] || (log.logged_at > (byEx[exId].logged_at || 0))) byEx[exId] = log;
+    });
+    return byEx;
+  }, [lastSession?.logs]);
 
   React.useEffect(() => {
     if (workout?.id && !sessionId && !startSessionMutation.isLoading) {
@@ -187,7 +203,14 @@ export default function WorkoutSession() {
               exit={{ opacity: 0 }}
               className="bg-slab-900 border border-slab-850 rounded-xl p-5"
             >
-              <h2 className="font-semibold text-zinc-100 mb-4 font-mono">{ex.name}</h2>
+              <div className="mb-4">
+                <h2 className="font-semibold text-zinc-100 font-mono">{ex.name}</h2>
+                {lastSetByExercise[ex.id] && (
+                  <p className="text-sm text-zinc-500 font-mono mt-0.5">
+                    Last: {[lastSetByExercise[ex.id].reps != null && `${lastSetByExercise[ex.id].reps} reps`, lastSetByExercise[ex.id].weight_kg != null && `${lastSetByExercise[ex.id].weight_kg} kg`].filter(Boolean).join(' × ')}
+                  </p>
+                )}
+              </div>
               <div className="space-y-0">
                 {/* Header and rows share the same grid so columns line up */}
                 <div className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 text-zinc-500 text-xs font-mono uppercase tracking-wider pb-2 border-b border-slab-850">
