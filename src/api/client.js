@@ -17,21 +17,22 @@ function getApiBase() {
   return '/api'; // dev: Vite proxy forwards to backend
 }
 
-// When the app is on Vercel, always use the Render backend (fixes 404 even with old/cached builds)
+// When the app is on Vercel, always use the Render backend (fixes 404 for sign up / log in)
 function resolveApiBase() {
-  if (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')) {
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
     return `${PRODUCTION_BACKEND_URL.replace(/\/$/, '')}/api`;
   }
   return getApiBase();
 }
 
-// Use resolveApiBase() per request so runtime fix applies even with cached/old builds
 const getBase = () => resolveApiBase();
 
-if (import.meta.env.PROD && !import.meta.env.VITE_API_URL && typeof window !== 'undefined') {
-  console.warn(
-    'GainTrack: VITE_API_URL is not set. API calls will fail. Set it in Vercel → Settings → Environment Variables to your backend URL (e.g. https://your-app.onrender.com), then redeploy.'
-  );
+// Log API base once so you can confirm in Console that we're calling Render, not Vercel
+if (typeof window !== 'undefined') {
+  const base = getBase();
+  if (base.startsWith('http')) {
+    console.log('GainTrack API:', base);
+  }
 }
 
 function getToken() {
