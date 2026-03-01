@@ -1,4 +1,7 @@
-const BASE = '/api';
+// In dev, Vite proxies /api to the backend. In production, use the Render (or other) backend URL.
+const API_BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
+  : '/api';
 
 function getToken() {
   return localStorage.getItem('token');
@@ -21,11 +24,11 @@ async function handleRes(res) {
 
 export const api = {
   async get(path, auth = true) {
-    const res = await fetch(BASE + path, { headers: headers(auth) });
+    const res = await fetch(API_BASE + path, { headers: headers(auth) });
     return handleRes(res);
   },
   async post(path, body, auth = true) {
-    const res = await fetch(BASE + path, {
+    const res = await fetch(API_BASE + path, {
       method: 'POST',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -33,7 +36,7 @@ export const api = {
     return handleRes(res);
   },
   async put(path, body, auth = true) {
-    const res = await fetch(BASE + path, {
+    const res = await fetch(API_BASE + path, {
       method: 'PUT',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -41,7 +44,7 @@ export const api = {
     return handleRes(res);
   },
   async patch(path, body, auth = true) {
-    const res = await fetch(BASE + path, {
+    const res = await fetch(API_BASE + path, {
       method: 'PATCH',
       headers: headers(auth),
       body: body ? JSON.stringify(body) : undefined,
@@ -49,7 +52,7 @@ export const api = {
     return handleRes(res);
   },
   async delete(path, auth = true) {
-    const res = await fetch(BASE + path, { method: 'DELETE', headers: headers(auth) });
+    const res = await fetch(API_BASE + path, { method: 'DELETE', headers: headers(auth) });
     if (res.status === 204) return;
     return handleRes(res);
   },

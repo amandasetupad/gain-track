@@ -42,8 +42,17 @@ The database is created automatically on first run in `server/data/workouts.db`.
 
 ## Environment
 
-- `PORT` — API server port (default `3001`)
-- `JWT_SECRET` — Secret for JWT (set in production)
+**Frontend (Vercel)** — add in Project → Settings → Environment Variables:
+
+- `VITE_API_URL` — Your backend URL, e.g. `https://your-app-api.onrender.com`. Must be **HTTPS** in production (Vercel is HTTPS; mixed content is blocked). Leave unset in dev (Vite proxies `/api` to the backend).
+
+**Backend (Render)** — add in Service → Environment:
+
+- `CORS_ORIGIN` — Your Vercel frontend URL, e.g. `https://your-workout-site.vercel.app`. Comma-separated for multiple origins.
+- `JWT_SECRET` — Strong secret for JWT (required in production).
+- `PORT` — Set automatically by Render; optional locally (default `3001`).
+
+See `.env.example` for a template.
 
 ## Share links
 
