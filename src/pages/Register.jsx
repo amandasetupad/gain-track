@@ -20,7 +20,11 @@ export default function Register() {
       await register(email, password);
       navigate('/');
     } catch (err) {
-      setError(err.error || 'Registration failed');
+      const msg =
+        err.status === 404 && err.error
+          ? err.error
+          : err.error || 'Registration failed';
+      setError(msg);
     } finally {
       setLoading(false);
     }

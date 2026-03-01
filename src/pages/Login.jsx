@@ -20,7 +20,11 @@ export default function Login() {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setError(err.error || 'Login failed');
+      const msg =
+        err.status === 404 && err.error
+          ? err.error
+          : err.error || 'Login failed';
+      setError(msg);
     } finally {
       setLoading(false);
     }

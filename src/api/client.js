@@ -26,7 +26,15 @@ function headers(includeAuth = true) {
 
 async function handleRes(res) {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw { status: res.status, ...data };
+  if (!res.ok) {
+    const err = { status: res.status, ...data };
+    // Vercel returns 404 NOT_FOUND when the path doesn't exist (no backend there)
+    if (res.status === 404 && (data.code === 'NOT_FOUND' || !import.meta.env.VITE_API_URL)) {
+      err.error =
+        "Server not found. Set VITE_API_URL in Vercel to your backend URL (e.g. https://your-app.onrender.com), then redeploy.";
+    }
+    throw err;
+  }
   return data;
 }
 
