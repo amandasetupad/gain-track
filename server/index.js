@@ -9,7 +9,7 @@ import { authMiddleware } from './middleware/auth.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS: allow Vercel frontend(s). If CORS_ORIGIN is set, use it; else allow localhost + any *.vercel.app
+// CORS: allow Vercel frontend(s). In production, allow any HTTPS origin so new Vercel URLs work without redeploy.
 const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
   : ['http://localhost:5173'];
@@ -18,9 +18,12 @@ const corsOptions = {
     if (!origin) return cb(null, true);
     if (corsOrigins.includes(origin)) return cb(null, true);
     if (origin.endsWith('.vercel.app')) return cb(null, true);
+    // Production: allow any HTTPS origin so gain-track-two, no-gain-no-pain, etc. all work
+    if (process.env.NODE_ENV === 'production' && origin.startsWith('https://')) return cb(null, true);
     return cb(null, false);
   },
   credentials: true,
+  optionsSuccessStatus: 204,
 };
 app.use(cors(corsOptions));
 app.use(express.json());
