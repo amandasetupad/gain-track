@@ -1,4 +1,6 @@
+# Ignore all node_modules (root and any subfolder) so Render builds Linux deps
 node_modules/
+**/node_modules/
 .env
 .DS_Store
 dist/

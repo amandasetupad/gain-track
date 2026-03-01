@@ -1,0 +1,17 @@
+# Render Web Service config for GainTrack backend
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: gain-track-api
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: "npm install && npm rebuild better-sqlite3"
+    startCommand: "node server/index.js"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
