@@ -60,11 +60,14 @@ export default function Register() {
               <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>
             )}
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-1">Email</label>
+              <label htmlFor="register-email" className="block text-sm font-medium text-zinc-400 mb-1">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" aria-hidden />
                 <input
+                  id="register-email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 focus:ring-1 focus:ring-gain-500 transition-colors"
@@ -74,11 +77,14 @@ export default function Register() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-1">Password</label>
+              <label htmlFor="register-password" className="block text-sm font-medium text-zinc-400 mb-1">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" aria-hidden />
                 <input
+                  id="register-password"
+                  name="password"
                   type="password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 focus:ring-1 focus:ring-gain-500 transition-colors"

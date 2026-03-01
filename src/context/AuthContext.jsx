@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 
 const AuthContext = createContext(null);
@@ -6,10 +7,18 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   const loadUser = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    const path = location.pathname || '';
+    if (path === '/login' || path === '/register') {
+      localStorage.removeItem('token');
       setUser(null);
       setLoading(false);
       return;
@@ -23,7 +32,7 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [location.pathname]);
 
   useEffect(() => {
     loadUser();
