@@ -1,12 +1,11 @@
 // --- Sign-up / API URL fix ---
-// In production, the app must call your live backend (e.g. on Render), not Vercel.
-// Option 1 (recommended): In Vercel → Settings → Environment Variables, add:
-//   VITE_API_URL = https://your-backend-name.onrender.com
-// Then redeploy so the build picks it up.
-// Option 2: Replace the URL below with your actual Render backend URL and push to GitHub.
+const GAINTRACK_BUILD = '2024-03-signup-fix-v1';
+if (typeof window !== 'undefined') {
+  console.log('[GainTrack]', GAINTRACK_BUILD, '— if you see this, the latest build is loaded. If sign-up still fails, check that the POST request in Network tab goes to https://gain-track.onrender.com');
+}
 const PRODUCTION_BACKEND_URL = 'https://gain-track.onrender.com';
 const API_PATH = '/api';
-const DEBUG = true; // Set to false to silence debug logs
+const DEBUG = true;
 
 function getBase() {
   if (typeof window === 'undefined') return PRODUCTION_BACKEND_URL + API_PATH;
