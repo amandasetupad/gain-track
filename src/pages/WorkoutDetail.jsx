@@ -11,6 +11,7 @@ import {
   GripVertical,
   ArrowLeft,
   Share2,
+  TrendingUp,
 } from 'lucide-react';
 import { api } from '../api/client';
 
@@ -25,13 +26,15 @@ export default function WorkoutDetail() {
   const [exercises, setExercises] = useState([]);
   const [copied, setCopied] = useState(false);
   const [bannerMessage, setBannerMessage] = useState(null);
+  const [bannerType, setBannerType] = useState(null); // 'success' | null (amber)
 
   useEffect(() => {
     if (location.state?.message) {
       setBannerMessage(location.state.message);
+      setBannerType(location.state.type ?? null);
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state?.message, location.pathname, navigate]);
+  }, [location.state?.message, location.state?.type, location.pathname, navigate]);
 
   const { data: workout, isLoading } = useQuery(
     ['workout', id],
@@ -113,7 +116,13 @@ export default function WorkoutDetail() {
   return (
     <div className="space-y-6">
       {bannerMessage && (
-        <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 px-4 py-2 text-sm font-mono">
+        <div
+          className={`rounded-lg px-4 py-2 text-sm font-mono ${
+            bannerType === 'success'
+              ? 'bg-gain-500/10 border border-gain-500/30 text-gain-400'
+              : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+          }`}
+        >
           {bannerMessage}
         </div>
       )}
@@ -129,6 +138,13 @@ export default function WorkoutDetail() {
             {isNew(id) ? 'New routine' : (workout?.name || name) || 'Edit routine'}
           </h1>
           <p className="text-sm text-zinc-500">Build your exercise list</p>
+          <Link
+            to="/history"
+            className="inline-flex items-center gap-1.5 mt-1 text-sm text-gain-500 hover:text-gain-400"
+          >
+            <TrendingUp className="w-4 h-4" />
+            View your logged reps & weight in Progress
+          </Link>
         </div>
       </div>
 

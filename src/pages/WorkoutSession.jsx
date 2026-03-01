@@ -32,7 +32,14 @@ export default function WorkoutSession() {
       onSuccess: () => {
         queryClient.invalidateQueries('workouts');
         queryClient.invalidateQueries(['workout', id]);
-        navigate(`/workout/${id}`);
+        queryClient.invalidateQueries('history-exercise-names');
+        queryClient.invalidateQueries('sessions');
+        navigate(`/workout/${id}`, {
+          state: {
+            message: 'Session ended. Your sets were saved. View reps & weight in Progress.',
+            type: 'success',
+          },
+        });
       },
       onError: (err) => {
         if (err?.status === 404) {

@@ -97,46 +97,76 @@ export default function History() {
           <div className="mt-8 py-12 text-center text-zinc-500">Loading history...</div>
         )}
 
-        {selectedExercise && !isLoading && chartData.length === 0 && (
-          <div className="mt-8 py-12 text-center text-zinc-500">
-            No logged sets for <strong className="text-zinc-400">{selectedExercise}</strong> yet.
-          </div>
+        {selectedExercise && !isLoading && historyByExercise.length > 0 && (
+          <>
+            <div className="mt-6 mb-6">
+              <h3 className="text-sm font-medium text-zinc-400 mb-3 font-mono">Logged sets (reps & weight)</h3>
+              <div className="overflow-x-auto rounded-lg border border-slab-850">
+                <table className="w-full text-sm font-mono">
+                  <thead>
+                    <tr className="bg-slab-850/80 text-zinc-500 text-left">
+                      <th className="px-3 py-2 font-medium">Date</th>
+                      <th className="px-3 py-2 font-medium">Set</th>
+                      <th className="px-3 py-2 font-medium">Reps</th>
+                      <th className="px-3 py-2 font-medium">Weight (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...historyByExercise]
+                      .sort((a, b) => (b.logged_at || 0) - (a.logged_at || 0))
+                      .map((log, i) => (
+                        <tr key={log.id || i} className="border-t border-slab-850 text-zinc-300">
+                          <td className="px-3 py-2">{formatDate(log.started_at)}</td>
+                          <td className="px-3 py-2">Set {(log.set_index ?? 0) + 1}</td>
+                          <td className="px-3 py-2">{log.reps != null ? log.reps : '—'}</td>
+                          <td className="px-3 py-2">{log.weight_kg != null ? log.weight_kg : '—'}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <h3 className="text-sm font-medium text-zinc-400 mb-3 font-mono">Progress over time</h3>
+            <div className="h-72 sm:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#71717a', fontSize: 12 }} />
+                  <YAxis stroke="#71717a" tick={{ fill: '#71717a', fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1a1d24',
+                      border: '1px solid #27272a',
+                      borderRadius: '8px',
+                    }}
+                    labelStyle={{ color: '#a1a1aa' }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="maxWeight"
+                    name="Max weight (kg)"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    dot={{ fill: '#22c55e' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="maxReps"
+                    name="Max reps"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ fill: '#3b82f6' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </>
         )}
 
-        {selectedExercise && !isLoading && chartData.length > 0 && (
-          <div className="mt-6 h-72 sm:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#71717a', fontSize: 12 }} />
-                <YAxis stroke="#71717a" tick={{ fill: '#71717a', fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1a1d24',
-                    border: '1px solid #27272a',
-                    borderRadius: '8px',
-                  }}
-                  labelStyle={{ color: '#a1a1aa' }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="maxWeight"
-                  name="Max weight (kg)"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  dot={{ fill: '#22c55e' }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="maxReps"
-                  name="Max reps"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: '#3b82f6' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+        {selectedExercise && !isLoading && chartData.length === 0 && historyByExercise.length === 0 && (
+          <div className="mt-8 py-12 text-center text-zinc-500">
+            No logged sets for <strong className="text-zinc-400">{selectedExercise}</strong> yet. Log reps and weight during a session, then come back here.
           </div>
         )}
       </motion.div>
