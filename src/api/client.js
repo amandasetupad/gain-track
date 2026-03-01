@@ -4,7 +4,7 @@
 //   VITE_API_URL = https://your-backend-name.onrender.com
 // Then redeploy so the build picks it up.
 // Option 2: Replace the URL below with your actual Render backend URL and push to GitHub.
-const PRODUCTION_BACKEND_URL = 'https://your-backend-name.onrender.com';
+const PRODUCTION_BACKEND_URL = 'https://gain-track.onrender.com';
 
 const API_BASE = (() => {
   const fromEnv = import.meta.env.VITE_API_URL;
