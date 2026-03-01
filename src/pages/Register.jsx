@@ -20,11 +20,11 @@ export default function Register() {
       await register(email, password);
       navigate('/');
     } catch (err) {
-      const msg =
-        err.status === 404 && err.error
-          ? err.error
-          : err.error || 'Registration failed';
-      setError(msg);
+      setError(
+        err.status === 404
+          ? 'Backend not reachable. In Vercel: set VITE_API_URL to your backend URL (e.g. https://your-app.onrender.com), then redeploy. Also ensure the backend is deployed (e.g. on Render).'
+          : err.error || 'Registration failed'
+      );
     } finally {
       setLoading(false);
     }

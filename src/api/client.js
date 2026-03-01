@@ -24,15 +24,14 @@ function headers(includeAuth = true) {
   return h;
 }
 
+const MSG_404_BACKEND =
+  "Backend not reachable. In Vercel: set VITE_API_URL to your backend URL (e.g. https://your-app.onrender.com), then redeploy. Also ensure the backend is deployed (e.g. on Render).";
+
 async function handleRes(res) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = { status: res.status, ...data };
-    // Vercel returns 404 NOT_FOUND when the path doesn't exist (no backend there)
-    if (res.status === 404 && (data.code === 'NOT_FOUND' || !import.meta.env.VITE_API_URL)) {
-      err.error =
-        "Server not found. Set VITE_API_URL in Vercel to your backend URL (e.g. https://your-app.onrender.com), then redeploy.";
-    }
+    if (res.status === 404) err.error = MSG_404_BACKEND;
     throw err;
   }
   return data;
