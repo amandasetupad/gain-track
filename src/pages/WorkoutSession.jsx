@@ -105,15 +105,18 @@ export default function WorkoutSession() {
         <h1 className="text-xl font-bold text-zinc-100 font-mono truncate">
           {workout.name} — Session
         </h1>
-        <button
-          onClick={() => endSessionMutation.mutate()}
-          disabled={endSessionMutation.isLoading}
-          className="flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-        >
-          <StopCircle className="w-4 h-4" />
-          End session
-        </button>
+        <span className="w-24" aria-hidden />
       </div>
+
+      {!sessionId && (
+        <p className="text-amber-400/90 text-sm font-mono">Starting session…</p>
+      )}
+
+      {logMutation.isError && (
+        <div className="rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-2 text-sm font-mono">
+          {logMutation.error?.error || logMutation.error?.message || 'Failed to save set'}
+        </div>
+      )}
 
       <div className="space-y-6">
         <AnimatePresence>
@@ -127,6 +130,12 @@ export default function WorkoutSession() {
             >
               <h2 className="font-semibold text-zinc-100 mb-4 font-mono">{ex.name}</h2>
               <div className="space-y-2">
+                <div className="grid grid-cols-[auto_1fr_1fr_auto] sm:grid-cols-[minmax(4rem,auto)_5rem_5rem_auto] items-center gap-x-3 gap-y-1 text-zinc-500 text-xs font-mono uppercase tracking-wider pb-1 border-b border-slab-850">
+                  <span>Set</span>
+                  <span>Reps</span>
+                  <span>Weight (kg)</span>
+                  <span aria-hidden />
+                </div>
                 {(logs[ex.id] || []).map((set, setIdx) => (
                   <div
                     key={setIdx}
@@ -137,6 +146,7 @@ export default function WorkoutSession() {
                       type="number"
                       min="0"
                       placeholder="Reps"
+                      aria-label="Reps"
                       value={set.reps ?? ''}
                       onChange={(e) => updateSet(ex.id, setIdx, 'reps', e.target.value)}
                       className="w-20 px-3 py-1.5 bg-slab-850 border border-slab-850 rounded text-zinc-100 font-mono text-sm"
@@ -146,6 +156,7 @@ export default function WorkoutSession() {
                       min="0"
                       step="0.5"
                       placeholder="kg"
+                      aria-label="Weight (kg)"
                       value={set.weight_kg ?? ''}
                       onChange={(e) => updateSet(ex.id, setIdx, 'weight_kg', e.target.value)}
                       className="w-20 px-3 py-1.5 bg-slab-850 border border-slab-850 rounded text-zinc-100 font-mono text-sm"
@@ -153,9 +164,9 @@ export default function WorkoutSession() {
                     <button
                       type="button"
                       onClick={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
-                      disabled={logMutation.isLoading}
-                      className="p-1.5 rounded bg-gain-500/20 text-gain-400 hover:bg-gain-500/30 transition-colors"
-                      title="Log set"
+                      disabled={!sessionId || logMutation.isLoading}
+                      className="p-1.5 rounded bg-gain-500/20 text-gain-400 hover:bg-gain-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Save set"
                     >
                       <Check className="w-4 h-4" />
                     </button>
@@ -173,6 +184,17 @@ export default function WorkoutSession() {
             </motion.section>
           ))}
         </AnimatePresence>
+      </div>
+
+      <div className="pt-6 border-t border-slab-850 flex justify-center sm:justify-end pb-8">
+        <button
+          onClick={() => endSessionMutation.mutate()}
+          disabled={endSessionMutation.isLoading}
+          className="flex items-center gap-2 px-6 py-3 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors font-mono text-sm"
+        >
+          <StopCircle className="w-5 h-5" />
+          End session
+        </button>
       </div>
     </div>
   );
