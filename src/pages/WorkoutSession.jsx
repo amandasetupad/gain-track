@@ -12,6 +12,9 @@ export default function WorkoutSession() {
   const [sessionId, setSessionId] = useState(null);
   const [logs, setLogs] = useState({}); // exerciseId -> [{ set_index, reps, weight_kg, saved? }]
   const [isEnding, setIsEnding] = useState(false);
+  const [sessionExercises, setSessionExercises] = useState([]);
+  const [isAddingExercise, setIsAddingExercise] = useState(false);
+  const [newExerciseName, setNewExerciseName] = useState('');
 
   const { data: workout, isLoading } = useQuery(
     ['workout', id],
@@ -75,7 +78,13 @@ export default function WorkoutSession() {
     }
   );
 
-  const exercises = workout?.exercises || [];
+  React.useEffect(() => {
+    if (workout?.exercises) {
+      setSessionExercises(workout.exercises);
+    }
+  }, [workout?.exercises]);
+
+  const exercises = sessionExercises;
 
   const lastSetByExercise = React.useMemo(() => {
     const logs = lastSession?.logs || [];
@@ -91,7 +100,38 @@ export default function WorkoutSession() {
     if (workout?.id && !sessionId && !startSessionMutation.isLoading) {
       startSessionMutation.mutate();
     }
-  }, [workout?.id, sessionId]);
+  }, [workout?.id, sessionId, startSessionMutation.isLoading, startSessionMutation]);
+
+  const addExerciseMutation = useMutation(
+    (payload) => api.put(`/workouts/${id}`, payload),
+    {
+      onSuccess: (updated) => {
+        setSessionExercises(updated.exercises || []);
+        queryClient.invalidateQueries(['workout', id]);
+        queryClient.invalidateQueries('workouts');
+        setNewExerciseName('');
+        setIsAddingExercise(false);
+      },
+    }
+  );
+
+  const handleConfirmAddExercise = useCallback(() => {
+    const trimmed = newExerciseName.trim();
+    if (!trimmed || !workout) return;
+    const currentExercises = exercises || [];
+    const newId =
+      (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID)
+        ? window.crypto.randomUUID()
+        : `ex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const payload = {
+      name: workout.name,
+      exercises: [
+        ...currentExercises.map((ex) => ({ id: ex.id, name: ex.name })),
+        { id: newId, name: trimmed },
+      ],
+    };
+    addExerciseMutation.mutate(payload);
+  }, [newExerciseName, workout, exercises, addExerciseMutation]);
 
   const addSet = useCallback(
     (exerciseId) => {
@@ -192,6 +232,60 @@ export default function WorkoutSession() {
           {workout.name} — Session
         </h1>
         <span className="w-24" aria-hidden />
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg bg-slab-900 border border-slab-850 px-4 py-3">
+        <div>
+          <p className="text-sm text-zinc-300 font-mono">Need to add an exercise mid-session?</p>
+          <p className="text-xs text-zinc-500">
+            New exercises will be saved to this workout so they&apos;re ready next time.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+          {isAddingExercise && (
+            <input
+              type="text"
+              value={newExerciseName}
+              onChange={(e) => setNewExerciseName(e.target.value)}
+              placeholder="New exercise name"
+              className="flex-1 px-3 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 font-mono text-sm"
+            />
+          )}
+          <div className="flex items-center gap-2 justify-end">
+            {isAddingExercise && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingExercise(false);
+                  setNewExerciseName('');
+                }}
+                className="px-3 py-2 text-xs font-mono text-zinc-400 hover:text-zinc-200"
+              >
+                Cancel
+              </button>
+            )}
+            {isAddingExercise ? (
+              <button
+                type="button"
+                onClick={handleConfirmAddExercise}
+                disabled={addExerciseMutation.isLoading || !newExerciseName.trim()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gain-500 hover:bg-gain-600 text-slab-950 rounded-lg text-xs font-semibold disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+                Save exercise
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAddingExercise(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slab-850 border border-slab-850 hover:border-gain-500/50 text-zinc-100 rounded-lg text-xs font-mono"
+              >
+                <Plus className="w-4 h-4" />
+                Add exercise
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {!sessionId && (
