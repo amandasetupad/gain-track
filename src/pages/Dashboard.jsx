@@ -21,10 +21,18 @@ export default function Dashboard() {
 
   const [ordered, setOrdered] = useState([]);
   const [draggingId, setDraggingId] = useState(null);
+  const [dragEnabled, setDragEnabled] = useState(false);
 
   useEffect(() => {
     setOrdered(workouts);
   }, [workouts]);
+
+  // Enable drag-and-drop only on devices with a precise pointer (desktop/laptop).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hasFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+    setDragEnabled(hasFinePointer);
+  }, []);
 
   const reorderMutation = useMutation(
     (ids) => api.put('/workouts/order', { ids }),
@@ -36,12 +44,17 @@ export default function Dashboard() {
     }
   );
 
-  const handleDragStart = useCallback((id) => {
-    setDraggingId(id);
-  }, []);
+  const handleDragStart = useCallback(
+    (id) => {
+      if (!dragEnabled) return;
+      setDraggingId(id);
+    },
+    [dragEnabled]
+  );
 
   const handleDragOver = useCallback(
     (event, targetId) => {
+      if (!dragEnabled) return;
       event.preventDefault();
       if (!draggingId || draggingId === targetId) return;
       setOrdered((prev) => {
@@ -54,14 +67,14 @@ export default function Dashboard() {
         return current;
       });
     },
-    [draggingId]
+    [draggingId, dragEnabled]
   );
 
   const handleDragEnd = useCallback(() => {
-    if (!draggingId) return;
+    if (!draggingId || !dragEnabled) return;
     setDraggingId(null);
     reorderMutation.mutate(ordered.map((w) => w.id));
-  }, [draggingId, ordered, reorderMutation]);
+  }, [draggingId, ordered, reorderMutation, dragEnabled]);
 
   return (
     <div className="space-y-6">
@@ -131,12 +144,14 @@ export default function Dashboard() {
               transition={{ delay: i * 0.05 }}
             >
               <Link
-                draggable
-                onDragStart={() => handleDragStart(w.id)}
-                onDragOver={(e) => handleDragOver(e, w.id)}
-                onDragEnd={handleDragEnd}
+                draggable={dragEnabled}
+                onDragStart={dragEnabled ? () => handleDragStart(w.id) : undefined}
+                onDragOver={dragEnabled ? (e) => handleDragOver(e, w.id) : undefined}
+                onDragEnd={dragEnabled ? handleDragEnd : undefined}
                 to={`/workout/${w.id}`}
-                className="block bg-slab-900 border border-slab-850 rounded-xl p-5 hover:border-gain-500/40 hover:bg-slab-850/50 transition-all group cursor-grab active:cursor-grabbing"
+                className={`block bg-slab-900 border border-slab-850 rounded-xl p-5 hover:border-gain-500/40 hover:bg-slab-850/50 transition-all group ${
+                  dragEnabled ? 'cursor-grab active:cursor-grabbing' : ''
+                }`}
               >
                 <div className="flex items-start justify-between">
                   <div>
