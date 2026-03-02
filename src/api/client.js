@@ -55,9 +55,11 @@ async function handleRes(res, requestUrl = '') {
     }
   }
   if (!res.ok) {
+    // Only auto-logout on 401 for the auth \"me\" check.
+    // For other endpoints (workouts, sessions, etc.) we surface the error but keep the user in place.
     if (res.status === 401 && typeof window !== 'undefined') {
       const u = requestUrl || res.url || '';
-      if (!u.includes('/auth/login') && !u.includes('/auth/register')) {
+      if (u.includes('/auth/me')) {
         localStorage.removeItem('token');
         window.dispatchEvent(new CustomEvent('auth:logout'));
       }

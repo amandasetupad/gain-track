@@ -44,7 +44,7 @@ export default function WorkoutDetail() {
   const [exercises, setExercises] = useState([]);
   const [copied, setCopied] = useState(false);
   const [bannerMessage, setBannerMessage] = useState(null);
-  const [bannerType, setBannerType] = useState(null); // 'success' | null (amber)
+  const [bannerType, setBannerType] = useState(null); // 'success' | 'error' | null (amber/info)
 
   useEffect(() => {
     if (location.state?.message) {
@@ -84,17 +84,42 @@ export default function WorkoutDetail() {
         queryClient.invalidateQueries('workouts');
         navigate(`/workout/${data.id}`, { replace: true });
       },
+      onError: (err) => {
+        setBannerMessage(err?.error || err?.message || 'Failed to create routine.');
+        setBannerType('error');
+      },
     }
   );
 
   const updateMutation = useMutation(
     (payload) => api.put(`/workouts/${id}`, payload),
-    { onSuccess: () => queryClient.invalidateQueries(['workout', id]).then(() => queryClient.invalidateQueries('workouts')) }
+    {
+      onSuccess: () => {
+        queryClient
+          .invalidateQueries(['workout', id])
+          .then(() => queryClient.invalidateQueries('workouts'));
+        setBannerMessage('Routine updated.');
+        setBannerType('success');
+      },
+      onError: (err) => {
+        setBannerMessage(err?.error || err?.message || 'Failed to save routine.');
+        setBannerType('error');
+      },
+    }
   );
 
   const deleteMutation = useMutation(
     () => api.delete(`/workouts/${id}`),
-    { onSuccess: () => { queryClient.invalidateQueries('workouts'); navigate('/'); } }
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('workouts');
+        navigate('/');
+      },
+      onError: (err) => {
+        setBannerMessage(err?.error || err?.message || 'Failed to delete routine.');
+        setBannerType('error');
+      },
+    }
   );
 
   const addExercise = () => setExercises((e) => [...e, { id: '', name: '' }]);
