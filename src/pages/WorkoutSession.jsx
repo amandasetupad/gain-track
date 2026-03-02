@@ -292,60 +292,6 @@ export default function WorkoutSession() {
         <span className="w-24" aria-hidden />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg bg-slab-900 border border-slab-850 px-4 py-3">
-        <div>
-          <p className="text-sm text-zinc-300 font-mono">Need to add an exercise mid-session?</p>
-          <p className="text-xs text-zinc-500">
-            New exercises will be saved to this workout so they&apos;re ready next time.
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-          {isAddingExercise && (
-            <input
-              type="text"
-              value={newExerciseName}
-              onChange={(e) => setNewExerciseName(e.target.value)}
-              placeholder="New exercise name"
-              className="flex-1 px-3 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 font-mono text-sm"
-            />
-          )}
-          <div className="flex items-center gap-2 justify-end">
-            {isAddingExercise && (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddingExercise(false);
-                  setNewExerciseName('');
-                }}
-                className="px-3 py-2 text-xs font-mono text-zinc-400 hover:text-zinc-200"
-              >
-                Cancel
-              </button>
-            )}
-            {isAddingExercise ? (
-              <button
-                type="button"
-                onClick={handleConfirmAddExercise}
-                disabled={addExerciseMutation.isLoading || !newExerciseName.trim()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gain-500 hover:bg-gain-600 text-slab-950 rounded-lg text-xs font-semibold disabled:opacity-50"
-              >
-                <Plus className="w-4 h-4" />
-                Save exercise
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsAddingExercise(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slab-850 border border-slab-850 hover:border-gain-500/50 text-zinc-100 rounded-lg text-xs font-mono"
-              >
-                <Plus className="w-4 h-4" />
-                Add exercise
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
       {!sessionId && (
         <p className="text-amber-400/90 text-sm font-mono">Starting session…</p>
       )}
@@ -440,6 +386,60 @@ export default function WorkoutSession() {
             </motion.section>
           ))}
         </AnimatePresence>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg bg-slab-900 border border-slab-850 px-4 py-3">
+        <div>
+          <p className="text-sm text-zinc-300 font-mono">Need to add an exercise mid-session?</p>
+          <p className="text-xs text-zinc-500">
+            New exercises will be saved to this workout so they&apos;re ready next time.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+          {isAddingExercise && (
+            <input
+              type="text"
+              value={newExerciseName}
+              onChange={(e) => setNewExerciseName(e.target.value)}
+              placeholder="New exercise name"
+              className="flex-1 px-3 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 font-mono text-sm"
+            />
+          )}
+          <div className="flex items-center gap-2 justify-end">
+            {isAddingExercise && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingExercise(false);
+                  setNewExerciseName('');
+                }}
+                className="px-3 py-2 text-xs font-mono text-zinc-400 hover:text-zinc-200"
+              >
+                Cancel
+              </button>
+            )}
+            {isAddingExercise ? (
+              <button
+                type="button"
+                onClick={handleConfirmAddExercise}
+                disabled={addExerciseMutation.isLoading || !newExerciseName.trim()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gain-500 hover:bg-gain-600 text-slab-950 rounded-lg text-xs font-semibold disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+                Save exercise
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAddingExercise(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slab-850 border border-slab-850 hover:border-gain-500/50 text-zinc-100 rounded-lg text-xs font-mono"
+              >
+                <Plus className="w-4 h-4" />
+                Add exercise
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="pt-6 border-t border-slab-850 flex flex-col items-center sm:items-end gap-2 pb-8">
