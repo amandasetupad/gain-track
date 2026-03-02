@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from 'react-query';
 import { motion } from 'framer-motion';
-import { Copy, Check, Dumbbell, LogIn } from 'lucide-react';
+import { Dumbbell, LogIn } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function SharedWorkout() {
   const { slug } = useParams();
-  const [copied, setCopied] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -18,14 +17,6 @@ export default function SharedWorkout() {
     () => api.get(`/share/workout/${slug}`, true),
     { retry: false }
   );
-
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const saveMutation = useMutation(
     () => api.post(`/share/workout/${slug}/save`),
@@ -96,24 +87,15 @@ export default function SharedWorkout() {
               <h1 className="text-xl font-bold text-zinc-100 font-mono">{workout.name}</h1>
               <p className="text-sm text-zinc-500 mt-0.5">Shared workout</p>
             </div>
-            <div className="flex flex-col items-end gap-1.5">
-              {user && (
-                <button
-                  onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isLoading}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gain-500 text-slab-950 hover:bg-gain-600 transition-colors text-sm font-semibold disabled:opacity-60"
-                >
-                  {saveMutation.isLoading ? 'Saving…' : 'Save to my routines'}
-                </button>
-              )}
+            {user && (
               <button
-                onClick={copyLink}
-                className="flex items-center gap-1 text-xs font-mono text-zinc-500 hover:text-zinc-300"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isLoading}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gain-500 text-slab-950 hover:bg-gain-600 transition-colors text-sm font-semibold disabled:opacity-60"
               >
-                {copied ? <Check className="w-3 h-3 text-gain-500" /> : <Copy className="w-3 h-3" />}
-                {copied ? 'Link copied' : 'Copy link'}
+                {saveMutation.isLoading ? 'Saving…' : 'Save to my routines'}
               </button>
-            </div>
+            )}
           </div>
 
           <ul className="space-y-2">

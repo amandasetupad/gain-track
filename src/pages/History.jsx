@@ -20,6 +20,15 @@ function formatDate(ts) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
 }
 
+function dayKeyFromTs(ts) {
+  if (!ts) return null;
+  const d = new Date(ts * 1000);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function History() {
   const [selectedExercise, setSelectedExercise] = useState('');
   const { data: exerciseNames = [] } = useQuery(
@@ -33,6 +42,51 @@ export default function History() {
     () => api.get(`/sessions/history/by-name?exerciseName=${encodeURIComponent(selectedExercise)}`),
     { enabled: !!selectedExercise }
   );
+
+  const calendarInfo = useMemo(() => {
+    if (!sessions || sessions.length === 0) {
+      return { days: [], monthLabel: '' };
+    }
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-11
+    const firstOfMonth = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const sessionsByDay = {};
+    sessions.forEach((s) => {
+      if (!s.ended_at) return;
+      const key = dayKeyFromTs(s.ended_at);
+      if (!key) return;
+      sessionsByDay[key] = (sessionsByDay[key] || 0) + 1;
+    });
+
+    const leadingBlanks = firstOfMonth.getDay(); // 0 (Sun) - 6 (Sat)
+    const days = [];
+
+    for (let i = 0; i < leadingBlanks; i++) {
+      days.push({ key: `blank-${i}`, label: '', hasSession: false, count: 0 });
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const count = sessionsByDay[key] || 0;
+      days.push({
+        key,
+        label: String(d),
+        hasSession: count > 0,
+        count,
+      });
+    }
+
+    const monthLabel = today.toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+
+    return { days, monthLabel };
+  }, [sessions]);
 
   const chartData = useMemo(() => {
     if (!historyByExercise.length) return [];
@@ -65,6 +119,51 @@ export default function History() {
           <p className="text-zinc-500 text-sm">Strength over time</p>
         </div>
       </motion.div>
+
+      {sessions.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.05 }}
+          className="bg-slab-900 border border-slab-850 rounded-xl p-5 sm:p-6"
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <div>
+              <h2 className="font-semibold text-zinc-200 font-mono">Workout calendar</h2>
+              <p className="text-xs text-zinc-500">
+                Days with completed workouts this month are highlighted.
+              </p>
+            </div>
+            <span className="text-xs font-mono text-zinc-500">{calendarInfo.monthLabel}</span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-7 gap-1 text-[11px] font-mono text-zinc-500">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
+              <div key={label} className="text-center">{label}</div>
+            ))}
+          </div>
+
+          <div className="mt-1 grid grid-cols-7 gap-1 text-xs font-mono">
+            {calendarInfo.days.map((day) => (
+              <div
+                key={day.key}
+                className={`relative flex h-9 items-center justify-center rounded-md border text-zinc-400 ${
+                  day.label
+                    ? day.hasSession
+                      ? 'border-gain-500/60 bg-gain-500/10 text-zinc-50'
+                      : 'border-slab-850 bg-slab-900'
+                    : 'border-transparent bg-transparent'
+                }`}
+              >
+                {day.label}
+                {day.hasSession && (
+                  <span className="absolute bottom-1 h-1.5 w-1.5 rounded-full bg-gain-500" />
+                )}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       <motion.div
         initial={{ opacity: 0 }}
@@ -100,7 +199,12 @@ export default function History() {
         {selectedExercise && !isLoading && historyByExercise.length > 0 && (
           <>
             <div className="mt-6 mb-6">
-              <h3 className="text-sm font-medium text-zinc-400 mb-3 font-mono">Logged sets (reps & weight)</h3>
+              <h3 className="text-sm font-medium text-zinc-400 mb-1 font-mono">
+                Logged sets for <span className="text-zinc-200">{selectedExercise}</span>
+              </h3>
+              <p className="text-xs text-zinc-500 mb-3">
+                Every row is one set you logged over time, newest first.
+              </p>
               <div className="overflow-x-auto rounded-lg border border-slab-850">
                 <table className="w-full text-sm font-mono">
                   <thead>

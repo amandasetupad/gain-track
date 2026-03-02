@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
-  Copy,
   Check,
   Trash2,
   Plus,
@@ -12,6 +11,7 @@ import {
   ArrowLeft,
   Share2,
   TrendingUp,
+  Pencil,
 } from 'lucide-react';
 import { api } from '../api/client';
 
@@ -47,6 +47,7 @@ export default function WorkoutDetail() {
   const [bannerType, setBannerType] = useState(null); // 'success' | 'error' | null (amber/info)
   const [lastSavedName, setLastSavedName] = useState('');
   const [lastSavedExercises, setLastSavedExercises] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (location.state?.message) {
@@ -126,8 +127,9 @@ export default function WorkoutDetail() {
         queryClient
           .invalidateQueries(['workout', id])
           .then(() => queryClient.invalidateQueries('workouts'));
-        setBannerMessage('Routine updated.');
+        setBannerMessage('Workout updated.');
         setBannerType('success');
+        setIsEditing(false);
       },
       onError: (err) => {
         setBannerMessage(err?.error || err?.message || 'Failed to save routine.');
@@ -193,6 +195,15 @@ export default function WorkoutDetail() {
     navigate('/');
   };
 
+  const cancelEdit = () => {
+    if (workout) {
+      setName(workout.name || '');
+      const initial = workout.exercises?.length ? workout.exercises : [{ id: '', name: '' }];
+      setExercises(initial.map((ex) => ({ id: ex.id || '', name: ex.name || '' })));
+    }
+    setIsEditing(false);
+  };
+
   if (!isNew(id) && isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -224,9 +235,13 @@ export default function WorkoutDetail() {
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-zinc-100 font-mono truncate">
-            {isNew(id) ? 'New workout' : (workout?.name || name) || 'Edit workout'}
+            {isNew(id) ? 'New workout' : (workout?.name || name) || 'Workout'}
           </h1>
-          <p className="text-sm text-zinc-500">Build your workout exercise list</p>
+          <p className="text-sm text-zinc-500">
+            {!isNew(id) && !isEditing
+              ? 'Start a session or share this workout'
+              : 'Build your workout exercise list'}
+          </p>
           <Link
             to="/history"
             className="inline-flex items-center gap-1.5 mt-1 text-sm text-gain-500 hover:text-gain-400"
@@ -252,130 +267,185 @@ export default function WorkoutDetail() {
         </motion.div>
       )}
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="bg-slab-900 border border-slab-850 rounded-xl p-5 sm:p-6 space-y-5"
-      >
-        <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-2">Workout name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Leg Day, Push Day"
-            className="w-full px-4 py-2.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 focus:ring-1 focus:ring-gain-500 font-mono"
-          />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-zinc-400">Exercises</label>
+      {/* View mode: existing workout, not editing — show only Start session, Share link, Edit */}
+      {!isNew(id) && !isEditing && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-slab-900 border border-slab-850 rounded-xl p-5 sm:p-6 space-y-5"
+        >
+          <div>
+            <p className="text-sm font-medium text-zinc-400 mb-1">Workout</p>
+            <p className="text-lg font-mono text-zinc-100">{workout?.name || name}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-zinc-400 mb-2">Exercises</p>
+            <ul className="space-y-2">
+              {(workout?.exercises || exercises).filter((ex) => ex.name?.trim()).map((ex, index) => {
+                const lastByEx = lastSetPerExercise(lastSession?.logs);
+                const last = ex.id ? lastByEx[ex.id] : null;
+                const lastStr = last != null
+                  ? [last.reps != null && `${last.reps} reps`, last.weight_kg != null && `${last.weight_kg} kg`].filter(Boolean).join(' × ')
+                  : null;
+                return (
+                  <li
+                    key={ex.id || index}
+                    className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 py-2 px-3 rounded-lg bg-slab-850/50 border border-slab-850"
+                  >
+                    <span className="font-mono text-zinc-200">{ex.name || `Exercise ${index + 1}`}</span>
+                    {lastStr && (
+                      <span className="text-xs font-mono text-zinc-500">Last: {lastStr}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <div className="flex flex-wrap gap-3 pt-2">
             <button
-              type="button"
-              onClick={addExercise}
-              className="flex items-center gap-1.5 text-sm text-gain-500 hover:text-gain-400"
+              onClick={startSession}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gain-500 hover:bg-gain-600 text-slab-950 font-semibold rounded-lg transition-colors"
             >
-              <Plus className="w-4 h-4" />
-              Add
+              <Play className="w-4 h-4" />
+              Start session
             </button>
-          </div>
-          <div className="space-y-2">
-            {(() => {
-              const lastByEx = lastSetPerExercise(lastSession?.logs);
-              return (
-                <AnimatePresence>
-                  {exercises.map((ex, index) => {
-                    const last = ex.id ? lastByEx[ex.id] : null;
-                    const lastStr = last != null
-                      ? [last.reps != null && `${last.reps} reps`, last.weight_kg != null && `${last.weight_kg} kg`].filter(Boolean).join(' × ')
-                      : null;
-                    return (
-                      <motion.div
-                        key={index}
-                        layout
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 8 }}
-                        className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"
-                      >
-                        <div className="flex items-center gap-2 flex-1">
-                          <GripVertical className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-                          <input
-                            type="text"
-                            value={ex.name}
-                            onChange={(e) => updateExercise(index, 'name', e.target.value)}
-                            placeholder={`Exercise ${index + 1}`}
-                            className="flex-1 px-4 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeExercise(index)}
-                            className="p-2 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-slab-850"
-                            aria-label="Remove"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        {lastStr && (
-                          <span className="text-xs font-mono text-zinc-500 sm:min-w-[8rem] pl-6 sm:pl-0">
-                            Last: {lastStr}
-                          </span>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              );
-            })()}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3 pt-2">
-          <button
-            onClick={save}
-            disabled={
-              !name.trim() ||
-              createMutation.isLoading ||
-              updateMutation.isLoading
-            }
-            className="px-4 py-2.5 bg-gain-500 hover:bg-gain-600 text-slab-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
-          >
-            {isNew(id) ? 'Create' : 'Save'}
-          </button>
-          {!isNew(id) && (
-            <>
+            {shareUrl && (
               <button
-                onClick={startSession}
+                onClick={copyLink}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-slab-850 border border-slab-850 hover:border-gain-500/50 text-zinc-100 font-medium rounded-lg transition-colors"
               >
-                <Play className="w-4 h-4" />
-                Start session
+                {copied ? (
+                  <Check className="w-4 h-4 text-gain-500" />
+                ) : (
+                  <Share2 className="w-4 h-4" />
+                )}
+                {copied ? 'Copied!' : 'Share link'}
               </button>
-              {shareUrl && (
-                <button
-                  onClick={copyLink}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-slab-850 border border-slab-850 hover:border-gain-500/50 text-zinc-100 font-medium rounded-lg transition-colors"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-gain-500" />
-                  ) : (
-                    <Share2 className="w-4 h-4" />
-                  )}
-                  {copied ? 'Copied!' : 'Copy share link'}
-                </button>
-              )}
+            )}
+            <button
+              onClick={() => setIsEditing(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-slab-850 border border-slab-850 hover:border-gain-500/50 text-zinc-100 font-medium rounded-lg transition-colors"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Edit mode: new workout or Edit clicked — show Save, Delete, + Add, trash bins */}
+      {(isNew(id) || isEditing) && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-slab-900 border border-slab-850 rounded-xl p-5 sm:p-6 space-y-5"
+        >
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-2">Workout name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Leg Day, Push Day"
+              className="w-full px-4 py-2.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 focus:ring-1 focus:ring-gain-500 font-mono"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-zinc-400">Exercises</label>
               <button
-                onClick={() => deleteMutation.mutate()}
-                disabled={deleteMutation.isLoading}
-                className="px-4 py-2.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                type="button"
+                onClick={addExercise}
+                className="flex items-center gap-1.5 text-sm text-gain-500 hover:text-gain-400"
               >
-                Delete
+                <Plus className="w-4 h-4" />
+                Add
               </button>
-            </>
-          )}
-        </div>
-      </motion.div>
+            </div>
+            <div className="space-y-2">
+              {(() => {
+                const lastByEx = lastSetPerExercise(lastSession?.logs);
+                return (
+                  <AnimatePresence>
+                    {exercises.map((ex, index) => {
+                      const last = ex.id ? lastByEx[ex.id] : null;
+                      const lastStr = last != null
+                        ? [last.reps != null && `${last.reps} reps`, last.weight_kg != null && `${last.weight_kg} kg`].filter(Boolean).join(' × ')
+                        : null;
+                      return (
+                        <motion.div
+                          key={index}
+                          layout
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 8 }}
+                          className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"
+                        >
+                          <div className="flex items-center gap-2 flex-1">
+                            <GripVertical className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                            <input
+                              type="text"
+                              value={ex.name}
+                              onChange={(e) => updateExercise(index, 'name', e.target.value)}
+                              placeholder={`Exercise ${index + 1}`}
+                              className="flex-1 px-4 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeExercise(index)}
+                              className="p-2 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-slab-850"
+                              aria-label="Remove"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {lastStr && (
+                            <span className="text-xs font-mono text-zinc-500 sm:min-w-[8rem] pl-6 sm:pl-0">
+                              Last: {lastStr}
+                            </span>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                );
+              })()}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button
+              onClick={save}
+              disabled={
+                !name.trim() ||
+                createMutation.isLoading ||
+                updateMutation.isLoading
+              }
+              className="px-4 py-2.5 bg-gain-500 hover:bg-gain-600 text-slab-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {isNew(id) ? 'Create' : 'Save'}
+            </button>
+            {!isNew(id) && isEditing && (
+              <>
+                <button
+                  onClick={cancelEdit}
+                  className="px-4 py-2.5 bg-slab-850 border border-slab-850 hover:border-gain-500/50 text-zinc-100 font-medium rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isLoading}
+                  className="px-4 py-2.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
