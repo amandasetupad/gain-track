@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useMutation, useQuery } from 'react-query';
 import { motion } from 'framer-motion';
 import { Copy, Check, Dumbbell, LogIn } from 'lucide-react';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function SharedWorkout() {
   const { slug } = useParams();
   const [copied, setCopied] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   const { data: workout, isLoading, error } = useQuery(
     ['shared', slug],
@@ -22,6 +26,19 @@ export default function SharedWorkout() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const saveMutation = useMutation(
+    () => api.post(`/share/workout/${slug}/save`),
+    {
+      onSuccess: (data) => {
+        setSaveError(null);
+        navigate(`/workout/${data.id}`);
+      },
+      onError: (err) => {
+        setSaveError(err?.error || err?.message || 'Failed to save this workout to your routines.');
+      },
+    }
+  );
 
   if (isLoading) {
     return (
@@ -52,13 +69,19 @@ export default function SharedWorkout() {
             <Dumbbell className="w-6 h-6" />
             <span className="font-mono">GainTrack</span>
           </Link>
-          <Link
-            to="/login"
-            className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-100"
-          >
-            <LogIn className="w-4 h-4" />
-            Sign in
-          </Link>
+          {!user ? (
+            <Link
+              to="/login"
+              className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-100"
+            >
+              <LogIn className="w-4 h-4" />
+              Sign in
+            </Link>
+          ) : (
+            <span className="text-xs text-zinc-500 font-mono truncate max-w-[160px]">
+              Signed in as {user.email}
+            </span>
+          )}
         </div>
       </header>
 
@@ -73,13 +96,24 @@ export default function SharedWorkout() {
               <h1 className="text-xl font-bold text-zinc-100 font-mono">{workout.name}</h1>
               <p className="text-sm text-zinc-500 mt-0.5">Shared workout</p>
             </div>
-            <button
-              onClick={copyLink}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slab-850 text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              {copied ? <Check className="w-4 h-4 text-gain-500" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied' : 'Copy link'}
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={copyLink}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slab-850 text-zinc-400 hover:text-zinc-100 transition-colors"
+              >
+                {copied ? <Check className="w-4 h-4 text-gain-500" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'Copied' : 'Copy link'}
+              </button>
+              {user && (
+                <button
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isLoading}
+                  className="text-xs font-mono text-gain-400 hover:text-gain-300 disabled:opacity-60"
+                >
+                  {saveMutation.isLoading ? 'Saving…' : 'Save to my routines'}
+                </button>
+              )}
+            </div>
           </div>
 
           <ul className="space-y-2">
@@ -96,6 +130,10 @@ export default function SharedWorkout() {
 
           {workout.exercises?.length === 0 && (
             <p className="text-zinc-500 text-sm">No exercises in this routine.</p>
+          )}
+
+          {saveError && (
+            <p className="mt-4 text-xs text-red-400 font-mono">{saveError}</p>
           )}
         </motion.div>
       </main>
