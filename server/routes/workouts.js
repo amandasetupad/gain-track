@@ -93,7 +93,21 @@ export function workoutsRouter(db) {
   });
 
   router.delete('/:id', async (req, res) => {
-    const r = await db.prepare('DELETE FROM workouts WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
+    // Delete related sessions (and their logs via ON DELETE CASCADE), then the workout.
+    // This avoids foreign key errors when a workout has history.
+    const workout = await db
+      .prepare('SELECT id FROM workouts WHERE id = ? AND user_id = ?')
+      .get(req.params.id, req.userId);
+    if (!workout) return res.status(404).json({ error: 'Workout not found' });
+
+    // Remove sessions for this workout & user; exercise_logs have ON DELETE CASCADE on session_id.
+    await db
+      .prepare('DELETE FROM sessions WHERE workout_id = ? AND user_id = ?')
+      .run(req.params.id, req.userId);
+
+    const r = await db
+      .prepare('DELETE FROM workouts WHERE id = ? AND user_id = ?')
+      .run(req.params.id, req.userId);
     if (r.changes === 0) return res.status(404).json({ error: 'Workout not found' });
     res.status(204).send();
   });
