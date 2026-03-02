@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Check, StopCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, StopCircle, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
 
 export default function WorkoutSession() {
@@ -384,17 +384,16 @@ export default function WorkoutSession() {
               </div>
               <div className="space-y-0">
                 {/* Header and rows share the same grid so columns line up */}
-                <div className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem_3rem] items-center gap-x-3 sm:gap-x-4 text-zinc-500 text-xs font-mono uppercase tracking-wider pb-2 border-b border-slab-850">
+                <div className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 text-zinc-500 text-xs font-mono uppercase tracking-wider pb-2 border-b border-slab-850">
                   <span>Set</span>
                   <span>Reps</span>
                   <span>Weight (kg)</span>
-                  <span className="sr-only">Save</span>
                   <span className="sr-only">Remove</span>
                 </div>
                 {(logs[ex.id] || []).map((set, setIdx) => (
                   <div
                     key={setIdx}
-                    className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem_3rem] items-center gap-x-3 sm:gap-x-4 py-2.5 border-b border-slab-850 last:border-0"
+                    className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 py-2.5 border-b border-slab-850 last:border-0"
                   >
                     <span className="text-zinc-500 text-sm font-mono">Set {setIdx + 1}</span>
                     <input
@@ -418,15 +417,6 @@ export default function WorkoutSession() {
                       onBlur={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
                       className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 font-mono text-sm"
                     />
-                    <button
-                      type="button"
-                      onClick={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
-                      disabled={!sessionId || logMutation.isLoading}
-                      className="p-1.5 rounded bg-gain-500/20 text-gain-400 hover:bg-gain-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed justify-self-start"
-                      title="Save set"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
                     <button
                       type="button"
                       onClick={() => removeSet(ex.id, setIdx, set.logId)}
