@@ -10,11 +10,11 @@ export function workoutsRouter(db) {
 
   router.get('/', async (req, res) => {
     const workouts = await db.prepare(`
-      SELECT w.id, w.name, w.slug, w.created_at, w.updated_at,
+      SELECT w.id, w.name, w.slug, w.created_at, w.updated_at, w.order_index,
              (SELECT COUNT(*) FROM workout_exercises WHERE workout_id = w.id) as exercise_count
       FROM workouts w
       WHERE w.user_id = ?
-      ORDER BY w.updated_at DESC
+      ORDER BY w.order_index ASC, w.updated_at DESC
     `).all(req.userId);
     res.json(workouts);
   });
@@ -56,9 +56,14 @@ export function workoutsRouter(db) {
     if (!name?.trim()) return res.status(400).json({ error: 'Workout name required' });
     const id = nanoid();
     const slug = slugify(name);
+    // Place new workout at the end of the current list for this user.
+    const maxRow = await db
+      .prepare('SELECT COALESCE(MAX(order_index), -1) as max FROM workouts WHERE user_id = ?')
+      .get(req.userId);
+    const nextIndex = ((maxRow && maxRow.max) ?? -1) + 1;
     await db.prepare(
-      'INSERT INTO workouts (id, user_id, name, slug) VALUES (?, ?, ?, ?)'
-    ).run(id, req.userId, name.trim(), slug);
+      'INSERT INTO workouts (id, user_id, name, slug, order_index) VALUES (?, ?, ?, ?, ?)'
+    ).run(id, req.userId, name.trim(), slug, nextIndex);
     for (let i = 0; i < exercises.length; i++) {
       const exId = nanoid();
       await db.prepare(
@@ -90,6 +95,20 @@ export function workoutsRouter(db) {
     const updated = await db.prepare('SELECT * FROM workouts WHERE id = ?').get(req.params.id);
     const exList = await db.prepare('SELECT id, name, order_index FROM workout_exercises WHERE workout_id = ? ORDER BY order_index').all(req.params.id);
     res.json({ ...updated, exercises: exList });
+  });
+
+  // Update the order of workouts for the current user.
+  router.put('/order', async (req, res) => {
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ error: 'ids array required' });
+    }
+    for (let i = 0; i < ids.length; i++) {
+      await db
+        .prepare('UPDATE workouts SET order_index = ? WHERE id = ? AND user_id = ?')
+        .run(i, ids[i], req.userId);
+    }
+    res.status(204).send();
   });
 
   router.delete('/:id', async (req, res) => {

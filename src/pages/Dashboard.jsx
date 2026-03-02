@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { motion } from 'framer-motion';
 import { Plus, Dumbbell, ChevronRight } from 'lucide-react';
 import { api } from '../api/client';
@@ -12,11 +12,56 @@ function formatSessionDate(ts) {
 }
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
   const { data: workouts = [], isLoading } = useQuery('workouts', () => api.get('/workouts'));
   const { data: sessions = [] } = useQuery('sessions', () => api.get('/sessions'));
   const lastSession = sessions
     .filter((s) => s.ended_at)
     .sort((a, b) => (b.ended_at || 0) - (a.ended_at || 0))[0] ?? null;
+
+  const [ordered, setOrdered] = useState([]);
+  const [draggingId, setDraggingId] = useState(null);
+
+  useEffect(() => {
+    setOrdered(workouts);
+  }, [workouts]);
+
+  const reorderMutation = useMutation(
+    (ids) => api.put('/workouts/order', { ids }),
+    {
+      onError: () => {
+        // Refetch on error to restore server order.
+        queryClient.invalidateQueries('workouts');
+      },
+    }
+  );
+
+  const handleDragStart = useCallback((id) => {
+    setDraggingId(id);
+  }, []);
+
+  const handleDragOver = useCallback(
+    (event, targetId) => {
+      event.preventDefault();
+      if (!draggingId || draggingId === targetId) return;
+      setOrdered((prev) => {
+        const current = [...prev];
+        const fromIndex = current.findIndex((w) => w.id === draggingId);
+        const toIndex = current.findIndex((w) => w.id === targetId);
+        if (fromIndex === -1 || toIndex === -1) return prev;
+        const [moved] = current.splice(fromIndex, 1);
+        current.splice(toIndex, 0, moved);
+        return current;
+      });
+    },
+    [draggingId]
+  );
+
+  const handleDragEnd = useCallback(() => {
+    if (!draggingId) return;
+    setDraggingId(null);
+    reorderMutation.mutate(ordered.map((w) => w.id));
+  }, [draggingId, ordered, reorderMutation]);
 
   return (
     <div className="space-y-6">
@@ -57,7 +102,7 @@ export default function Dashboard() {
             <div key={i} className="h-32 bg-slab-900 border border-slab-850 rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : workouts.length === 0 ? (
+      ) : ordered.length === 0 ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -78,7 +123,7 @@ export default function Dashboard() {
         </motion.div>
       ) : (
         <div className="dashboard-grid">
-          {workouts.map((w, i) => (
+          {ordered.map((w, i) => (
             <motion.div
               key={w.id}
               initial={{ opacity: 0, y: 12 }}
@@ -86,8 +131,12 @@ export default function Dashboard() {
               transition={{ delay: i * 0.05 }}
             >
               <Link
+                draggable
+                onDragStart={() => handleDragStart(w.id)}
+                onDragOver={(e) => handleDragOver(e, w.id)}
+                onDragEnd={handleDragEnd}
                 to={`/workout/${w.id}`}
-                className="block bg-slab-900 border border-slab-850 rounded-xl p-5 hover:border-gain-500/40 hover:bg-slab-850/50 transition-all group"
+                className="block bg-slab-900 border border-slab-850 rounded-xl p-5 hover:border-gain-500/40 hover:bg-slab-850/50 transition-all group cursor-grab active:cursor-grabbing"
               >
                 <div className="flex items-start justify-between">
                   <div>

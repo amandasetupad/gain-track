@@ -22,6 +22,7 @@ const SCHEMA = `
     slug TEXT UNIQUE NOT NULL,
     created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW())::BIGINT),
     updated_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW())::BIGINT),
+    order_index INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
   CREATE TABLE IF NOT EXISTS workout_exercises (
@@ -58,6 +59,7 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_exercise_logs_session ON exercise_logs(session_id);
   CREATE INDEX IF NOT EXISTS idx_exercise_logs_exercise ON exercise_logs(workout_exercise_id);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_workouts_slug ON workouts(slug);
+  ALTER TABLE workouts ADD COLUMN IF NOT EXISTS order_index INTEGER NOT NULL DEFAULT 0;
 `;
 
 export async function createPgDb() {

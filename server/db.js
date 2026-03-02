@@ -37,6 +37,7 @@ async function createSqliteDb() {
     slug TEXT UNIQUE NOT NULL,
     created_at INTEGER DEFAULT (strftime('%s', 'now')),
     updated_at INTEGER DEFAULT (strftime('%s', 'now')),
+    order_index INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
   CREATE TABLE IF NOT EXISTS workout_exercises (
@@ -76,6 +77,12 @@ async function createSqliteDb() {
 `;
   for (const sql of schema.split(';').map((s) => s.trim()).filter(Boolean)) {
     if (sql) internalDb.run(sql);
+  }
+  // In case workouts table already existed without order_index, try to add it.
+  try {
+    internalDb.run('ALTER TABLE workouts ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0');
+  } catch {
+    // ignore if column already exists
   }
   save();
 
