@@ -96,23 +96,23 @@ export default function SharedWorkout() {
               <h1 className="text-xl font-bold text-zinc-100 font-mono">{workout.name}</h1>
               <p className="text-sm text-zinc-500 mt-0.5">Shared workout</p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <button
-                onClick={copyLink}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slab-850 text-zinc-400 hover:text-zinc-100 transition-colors"
-              >
-                {copied ? <Check className="w-4 h-4 text-gain-500" /> : <Copy className="w-4 h-4" />}
-                {copied ? 'Copied' : 'Copy link'}
-              </button>
+            <div className="flex flex-col items-end gap-1.5">
               {user && (
                 <button
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isLoading}
-                  className="text-xs font-mono text-gain-400 hover:text-gain-300 disabled:opacity-60"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gain-500 text-slab-950 hover:bg-gain-600 transition-colors text-sm font-semibold disabled:opacity-60"
                 >
                   {saveMutation.isLoading ? 'Saving…' : 'Save to my routines'}
                 </button>
               )}
+              <button
+                onClick={copyLink}
+                className="flex items-center gap-1 text-xs font-mono text-zinc-500 hover:text-zinc-300"
+              >
+                {copied ? <Check className="w-3 h-3 text-gain-500" /> : <Copy className="w-3 h-3" />}
+                {copied ? 'Link copied' : 'Copy link'}
+              </button>
             </div>
           </div>
 
