@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Check, StopCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Check, StopCircle, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
 
 export default function WorkoutSession() {
@@ -15,6 +15,7 @@ export default function WorkoutSession() {
   const [sessionExercises, setSessionExercises] = useState([]);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
+  const initializedSessionRef = React.useRef(null);
 
   const { data: workout, isLoading } = useQuery(
     ['workout', id],
@@ -64,14 +65,14 @@ export default function WorkoutSession() {
   const logMutation = useMutation(
     (body) => api.post(`/sessions/${sessionId}/logs`, body),
     {
-      onSuccess: (_, variables) => {
+      onSuccess: (data, variables) => {
         queryClient.invalidateQueries(['session', sessionId]);
         const exId = variables.workout_exercise_id;
         const setIdx = variables.set_index;
         setLogs((prev) => ({
           ...prev,
           [exId]: (prev[exId] || []).map((s, i) =>
-            i === setIdx ? { ...s, saved: true } : s
+            i === setIdx ? { ...s, saved: true, logId: data?.id } : s
           ),
         }));
       },
@@ -95,6 +96,40 @@ export default function WorkoutSession() {
     });
     return byEx;
   }, [lastSession?.logs]);
+
+  // Group last session's logs by exercise, sorted by set_index, for "Last session: Set 1: X×Y kg" display
+  const lastSessionSetsByExercise = React.useMemo(() => {
+    const list = lastSession?.logs || [];
+    const byEx = {};
+    list.forEach((log) => {
+      const exId = log.workout_exercise_id;
+      if (!byEx[exId]) byEx[exId] = [];
+      byEx[exId].push(log);
+    });
+    Object.keys(byEx).forEach((exId) => {
+      byEx[exId].sort((a, b) => (a.set_index ?? 0) - (b.set_index ?? 0));
+    });
+    return byEx;
+  }, [lastSession?.logs]);
+
+  // Pre-fill set rows from last session so user sees same number of sets (e.g. 3) ready to log
+  React.useEffect(() => {
+    if (!sessionId || !exercises.length) return;
+    if (initializedSessionRef.current === sessionId) return;
+    initializedSessionRef.current = sessionId;
+    const initial = {};
+    exercises.forEach((ex) => {
+      const exLogs = lastSession?.logs ? (lastSession.logs || []).filter((l) => l.workout_exercise_id === ex.id) : [];
+      const count = Math.max(1, exLogs.length);
+      initial[ex.id] = Array.from({ length: count }, (_, i) => ({
+        set_index: i,
+        reps: '',
+        weight_kg: '',
+        saved: false,
+      }));
+    });
+    setLogs(initial);
+  }, [sessionId, exercises, lastSession?.logs]);
 
   React.useEffect(() => {
     if (workout?.id && !sessionId && !startSessionMutation.isLoading) {
@@ -157,6 +192,8 @@ export default function WorkoutSession() {
   const saveSet = useCallback(
     (exerciseId, exerciseName, setIndex, reps, weight_kg) => {
       if (!sessionId) return;
+      const hasData = (reps !== '' && reps != null) || (weight_kg !== '' && weight_kg != null);
+      if (!hasData) return;
       logMutation.mutate({
         workout_exercise_id: exerciseId,
         exercise_name: exerciseName,
@@ -166,6 +203,27 @@ export default function WorkoutSession() {
       });
     },
     [sessionId, logMutation]
+  );
+
+  const deleteLogMutation = useMutation(
+    (logId) => api.delete(`/sessions/${sessionId}/logs/${logId}`),
+    {
+      onSuccess: () => queryClient.invalidateQueries(['session', sessionId]),
+    }
+  );
+
+  const removeSet = useCallback(
+    (exerciseId, setIndex, logId) => {
+      if (logId) {
+        deleteLogMutation.mutate(logId);
+      }
+      setLogs((prev) => {
+        const list = [...(prev[exerciseId] || [])];
+        list.splice(setIndex, 1);
+        return { ...prev, [exerciseId]: list };
+      });
+    },
+    [deleteLogMutation]
   );
 
   const saveAllUnsavedSets = useCallback(async () => {
@@ -315,19 +373,28 @@ export default function WorkoutSession() {
                     Last: {[lastSetByExercise[ex.id].reps != null && `${lastSetByExercise[ex.id].reps} reps`, lastSetByExercise[ex.id].weight_kg != null && `${lastSetByExercise[ex.id].weight_kg} kg`].filter(Boolean).join(' × ')}
                   </p>
                 )}
+                {lastSessionSetsByExercise[ex.id]?.length > 0 && (
+                  <p className="text-xs text-zinc-500 font-mono mt-1">
+                    Last session: {lastSessionSetsByExercise[ex.id].map((log, i) => {
+                      const parts = [log.reps != null && `${log.reps}`, log.weight_kg != null && `${log.weight_kg} kg`].filter(Boolean);
+                      return `Set ${i + 1}: ${parts.length ? parts.join('×') : '—'}`;
+                    }).join(', ')}
+                  </p>
+                )}
               </div>
               <div className="space-y-0">
                 {/* Header and rows share the same grid so columns line up */}
-                <div className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 text-zinc-500 text-xs font-mono uppercase tracking-wider pb-2 border-b border-slab-850">
+                <div className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem_3rem] items-center gap-x-3 sm:gap-x-4 text-zinc-500 text-xs font-mono uppercase tracking-wider pb-2 border-b border-slab-850">
                   <span>Set</span>
                   <span>Reps</span>
                   <span>Weight (kg)</span>
                   <span className="sr-only">Save</span>
+                  <span className="sr-only">Remove</span>
                 </div>
                 {(logs[ex.id] || []).map((set, setIdx) => (
                   <div
                     key={setIdx}
-                    className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 py-2.5 border-b border-slab-850 last:border-0"
+                    className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem_3rem] items-center gap-x-3 sm:gap-x-4 py-2.5 border-b border-slab-850 last:border-0"
                   >
                     <span className="text-zinc-500 text-sm font-mono">Set {setIdx + 1}</span>
                     <input
@@ -337,6 +404,7 @@ export default function WorkoutSession() {
                       aria-label="Reps"
                       value={set.reps ?? ''}
                       onChange={(e) => updateSet(ex.id, setIdx, 'reps', e.target.value)}
+                      onBlur={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
                       className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 font-mono text-sm"
                     />
                     <input
@@ -347,6 +415,7 @@ export default function WorkoutSession() {
                       aria-label="Weight (kg)"
                       value={set.weight_kg ?? ''}
                       onChange={(e) => updateSet(ex.id, setIdx, 'weight_kg', e.target.value)}
+                      onBlur={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
                       className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 font-mono text-sm"
                     />
                     <button
@@ -357,6 +426,15 @@ export default function WorkoutSession() {
                       title="Save set"
                     >
                       <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeSet(ex.id, setIdx, set.logId)}
+                      className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-slab-850 justify-self-start"
+                      title="Remove set"
+                      aria-label="Remove set"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}

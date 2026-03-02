@@ -105,5 +105,15 @@ export function sessionsRouter(db) {
     res.status(201).json(log);
   });
 
+  router.delete('/:id/logs/:logId', async (req, res) => {
+    const session = await db.prepare('SELECT id FROM sessions WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const r = await db.prepare(
+      'DELETE FROM exercise_logs WHERE id = ? AND session_id = ?'
+    ).run(req.params.logId, req.params.id);
+    if (r.changes === 0) return res.status(404).json({ error: 'Log not found' });
+    res.status(204).send();
+  });
+
   return router;
 }
