@@ -45,6 +45,8 @@ export default function WorkoutDetail() {
   const [copied, setCopied] = useState(false);
   const [bannerMessage, setBannerMessage] = useState(null);
   const [bannerType, setBannerType] = useState(null); // 'success' | 'error' | null (amber/info)
+  const [lastSavedName, setLastSavedName] = useState('');
+  const [lastSavedExercises, setLastSavedExercises] = useState([]);
 
   useEffect(() => {
     if (location.state?.message) {
@@ -69,13 +71,39 @@ export default function WorkoutDetail() {
   React.useEffect(() => {
     if (workout) {
       setName(workout.name || '');
-      setExercises(workout.exercises?.length ? workout.exercises : [{ id: '', name: '' }]);
+      const initialExercises = workout.exercises?.length ? workout.exercises : [{ id: '', name: '' }];
+      setExercises(initialExercises);
+      // Capture a \"saved\" snapshot used to detect unsaved changes.
+      setLastSavedName(workout.name || '');
+      setLastSavedExercises(
+        (initialExercises || []).map((ex) => ({ id: ex.id || '', name: ex.name || '' }))
+      );
     }
     if (isNew(id)) {
       setName('');
       setExercises([{ id: '', name: '' }]);
+      setLastSavedName('');
+      setLastSavedExercises([]);
     }
   }, [workout, id]);
+
+  const isDirty = React.useMemo(() => {
+    // New workout: consider dirty only if the user typed a name or any exercise name.
+    if (isNew(id) && !workout) {
+      if (name.trim()) return true;
+      return exercises.some((ex) => ex.name?.trim());
+    }
+    const current = (exercises || []).map((ex) => ({ id: ex.id || '', name: ex.name || '' }));
+    const saved = lastSavedExercises || [];
+    if (name !== lastSavedName) return true;
+    if (current.length !== saved.length) return true;
+    for (let i = 0; i < current.length; i++) {
+      if (current[i].id !== saved[i].id || current[i].name !== saved[i].name) {
+        return true;
+      }
+    }
+    return false;
+  }, [id, workout, name, exercises, lastSavedName, lastSavedExercises]);
 
   const createMutation = useMutation(
     (payload) => api.post('/workouts', payload),
@@ -154,6 +182,17 @@ export default function WorkoutDetail() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleBackClick = (event) => {
+    event.preventDefault();
+    if (isDirty) {
+      const leave = window.confirm(
+        'You have unsaved changes to this workout. Leave without saving?'
+      );
+      if (!leave) return;
+    }
+    navigate('/');
+  };
+
   if (!isNew(id) && isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -178,15 +217,16 @@ export default function WorkoutDetail() {
       <div className="flex items-center gap-4">
         <Link
           to="/"
+          onClick={handleBackClick}
           className="p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-slab-850"
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-zinc-100 font-mono truncate">
-            {isNew(id) ? 'New routine' : (workout?.name || name) || 'Edit routine'}
+            {isNew(id) ? 'New workout' : (workout?.name || name) || 'Edit workout'}
           </h1>
-          <p className="text-sm text-zinc-500">Build your exercise list</p>
+          <p className="text-sm text-zinc-500">Build your workout exercise list</p>
           <Link
             to="/history"
             className="inline-flex items-center gap-1.5 mt-1 text-sm text-gain-500 hover:text-gain-400"
@@ -218,7 +258,7 @@ export default function WorkoutDetail() {
         className="bg-slab-900 border border-slab-850 rounded-xl p-5 sm:p-6 space-y-5"
       >
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-2">Routine name</label>
+          <label className="block text-sm font-medium text-zinc-400 mb-2">Workout name</label>
           <input
             type="text"
             value={name}
