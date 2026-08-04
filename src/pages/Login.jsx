@@ -8,6 +8,9 @@ import { MSG_BACKEND_NOT_CONFIGURED, MSG_BACKEND_UNAVAILABLE } from '../api/clie
 const isBackendConfigured = () =>
   typeof import.meta.env.VITE_API_URL === 'string' && import.meta.env.VITE_API_URL.length > 0;
 
+const MSG_LOGIN_INVALID =
+  'Invalid email or password. If you signed up before the server was fixed, your account may have been reset — please sign up again.';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +31,8 @@ export default function Login() {
       setError(
         err.status === 0
           ? MSG_BACKEND_UNAVAILABLE
+          : err.status === 401
+            ? MSG_LOGIN_INVALID
           : err.status === 404 || (import.meta.env.PROD && !isBackendConfigured())
             ? backendMsg
             : err.error || 'Login failed'
@@ -109,6 +114,13 @@ export default function Login() {
             <Link to="/register" className="text-gain-500 hover:text-gain-400 font-medium">
               Sign up
             </Link>
+          </p>
+          <p className="mt-3 text-center text-xs text-zinc-600">
+            Had an account before? After a recent server restart you may need to{' '}
+            <Link to="/register" className="text-zinc-500 hover:text-gain-400 underline-offset-2 hover:underline">
+              create a new one
+            </Link>
+            .
           </p>
         </div>
       </motion.div>
