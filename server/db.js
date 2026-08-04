@@ -130,8 +130,24 @@ async function createSqliteDb() {
 
 export async function initDb() {
   if (process.env.DATABASE_URL) {
-    const { createPgDb } = await import('./db-pg.js');
-    return createPgDb();
+    try {
+      const { createPgDb } = await import('./db-pg.js');
+      const db = await createPgDb();
+      console.log('Using PostgreSQL (DATABASE_URL)');
+      return db;
+    } catch (err) {
+      console.error('PostgreSQL init failed:', err.message);
+      if (process.env.NODE_ENV === 'production') {
+        console.warn(
+          'Falling back to SQLite. Data will not persist across restarts. ' +
+            'Fix or remove DATABASE_URL in Render environment variables.'
+        );
+        console.log('Using SQLite (server/data/workouts.db)');
+        return createSqliteDb();
+      }
+      throw err;
+    }
   }
+  console.log('Using SQLite (server/data/workouts.db)');
   return createSqliteDb();
 }

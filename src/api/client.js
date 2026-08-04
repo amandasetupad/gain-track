@@ -41,6 +41,28 @@ function headers(includeAuth = true) {
 export const MSG_BACKEND_NOT_CONFIGURED =
   "Sign up won't work until the backend is set. In Vercel: add env var VITE_API_URL = your backend URL (e.g. https://your-app.onrender.com), then redeploy. Deploy the backend first (e.g. on Render.com).";
 
+export const MSG_BACKEND_UNAVAILABLE =
+  'Cannot reach the server. On Render free tier the backend may take up to a minute to wake up. Wait and try again.';
+
+export function getApiBase() {
+  return getBase();
+}
+
+export async function fetchWithTimeout(url, options = {}, ms = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw { status: 0, error: MSG_BACKEND_UNAVAILABLE };
+    }
+    throw { status: 0, error: MSG_BACKEND_UNAVAILABLE };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function handleRes(res, requestUrl = '') {
   const data = await res.json().catch(() => ({}));
   if (DEBUG && typeof window !== 'undefined' && !res.ok) {

@@ -1,5 +1,24 @@
 # Deploy checklist (Vercel + Render)
 
+## Render crash: "Exited with status 1"
+
+If Render shows **Instance failed / Exited with status 1**, the backend crashed during startup — usually because **`DATABASE_URL`** is set but PostgreSQL cannot connect (missing SSL, expired database, wrong URL).
+
+**After pushing the latest code:**
+
+1. Render should auto-redeploy from `amandasetupad/gain-track` (main).
+2. Open **https://gain-track.onrender.com/api/health** — expect `{"ok":true}`.
+3. In Render → **gain-track** → **Logs**, confirm `Server running on port ...`.
+
+**Fix PostgreSQL (optional, for persistent data):**
+
+- Render → **Environment** → set **DATABASE_URL** to your PostgreSQL **Internal Database URL** (from Render PostgreSQL → Info).
+- Or **remove DATABASE_URL** to use SQLite (data resets on each deploy/restart).
+
+**Redeploy frontend (Vercel):** push triggers redeploy, or manually redeploy **gain-track-two** so login shows a timeout message instead of hanging forever.
+
+---
+
 ## If sign-up still fails and you don't see `[GainTrack]` in the Console
 
 Your live site is likely serving an **old build**. Force a fresh deploy:

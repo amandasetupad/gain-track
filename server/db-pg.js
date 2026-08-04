@@ -62,11 +62,35 @@ const SCHEMA = `
   ALTER TABLE workouts ADD COLUMN IF NOT EXISTS order_index INTEGER NOT NULL DEFAULT 0;
 `;
 
+function pgPoolConfig() {
+  const connectionString = process.env.DATABASE_URL;
+  const config = {
+    connectionString,
+    connectionTimeoutMillis: 15000,
+    idleTimeoutMillis: 30000,
+  };
+  // Render and most cloud Postgres require SSL in production.
+  const needsSsl =
+    process.env.NODE_ENV === 'production' ||
+    connectionString?.includes('render.com') ||
+    connectionString?.includes('sslmode=require');
+  if (needsSsl) {
+    config.ssl = { rejectUnauthorized: false };
+  }
+  return config;
+}
+
 export async function createPgDb() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool(pgPoolConfig());
   const statements = SCHEMA.split(';').map((s) => s.trim()).filter(Boolean);
   for (const sql of statements) {
-    await pool.query(sql);
+    try {
+      await pool.query(sql);
+    } catch (err) {
+      // Idempotent migrations (e.g. column/index already exists).
+      if (err.code === '42701' || err.code === '42P07') continue;
+      throw err;
+    }
   }
   return {
     async exec(sql) {

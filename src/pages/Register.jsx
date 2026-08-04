@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Dumbbell, Mail, Lock, UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { MSG_BACKEND_NOT_CONFIGURED } from '../api/client';
+import { MSG_BACKEND_NOT_CONFIGURED, MSG_BACKEND_UNAVAILABLE } from '../api/client';
 
 const isBackendConfigured = () =>
   typeof import.meta.env.VITE_API_URL === 'string' && import.meta.env.VITE_API_URL.length > 0;
@@ -26,9 +26,11 @@ export default function Register() {
     } catch (err) {
       const backendMsg = MSG_BACKEND_NOT_CONFIGURED;
       setError(
-        err.status === 404 || (import.meta.env.PROD && !isBackendConfigured())
-          ? backendMsg
-          : err.error || 'Registration failed'
+        err.status === 0
+          ? MSG_BACKEND_UNAVAILABLE
+          : err.status === 404 || (import.meta.env.PROD && !isBackendConfigured())
+            ? backendMsg
+            : err.error || 'Registration failed'
       );
     } finally {
       setLoading(false);

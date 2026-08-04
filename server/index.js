@@ -30,7 +30,6 @@ app.use(express.json());
 
 async function start() {
   const db = await initDb();
-  console.log(process.env.DATABASE_URL ? 'Using PostgreSQL (DATABASE_URL)' : 'Using SQLite (server/data/workouts.db)');
 
   app.use('/api/auth', authRouter(db));
   app.use('/api/workouts', authMiddleware, workoutsRouter(db));
@@ -39,8 +38,11 @@ async function start() {
 
   app.get('/api/health', (_, res) => res.json({ ok: true }));
 
-  app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+  }).on('error', (err) => {
+    console.error('Failed to bind port:', err.message);
+    process.exit(1);
   });
 }
 

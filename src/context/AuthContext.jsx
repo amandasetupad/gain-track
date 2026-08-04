@@ -1,11 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, getApiBase, fetchWithTimeout } from '../api/client';
 
 const AuthContext = createContext(null);
-
-// Always use this URL for login/register so sign-up works even with cached or wrong build
-const AUTH_API = 'https://gain-track.onrender.com/api';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -47,8 +44,8 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:logout', onLogout);
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const res = await fetch(`${AUTH_API}/auth/login`, {
+  const authRequest = useCallback(async (path, email, password) => {
+    const res = await fetchWithTimeout(`${getApiBase()}/auth/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -61,19 +58,15 @@ export function AuthProvider({ children }) {
     return u;
   }, []);
 
-  const register = useCallback(async (email, password) => {
-    const res = await fetch(`${AUTH_API}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw { status: res.status, ...data };
-    const { token, ...u } = data;
-    localStorage.setItem('token', token);
-    setUser(u);
-    return u;
-  }, []);
+  const login = useCallback(
+    (email, password) => authRequest('login', email, password),
+    [authRequest]
+  );
+
+  const register = useCallback(
+    (email, password) => authRequest('register', email, password),
+    [authRequest]
+  );
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
