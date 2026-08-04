@@ -9,7 +9,9 @@
     "dev:client": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "db:init": "node server/scripts/init-db.js"
+    "db:init": "node server/scripts/init-db.js",
+    "db:inspect": "node server/scripts/inspect-db.js",
+    "db:migrate-to-pg": "node server/scripts/migrate-sqlite-to-pg.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

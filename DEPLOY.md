@@ -17,6 +17,8 @@ If Render shows **Instance failed / Exited with status 1**, the backend crashed 
 
 **Redeploy frontend (Vercel):** push triggers redeploy, or manually redeploy **gain-track-two** so login shows a timeout message instead of hanging forever.
 
+**Lost account or workouts?** See **[RECOVERY.md](./RECOVERY.md)** — your data may still exist in Render PostgreSQL.
+
 ---
 
 ## If sign-up still fails and you don't see `[GainTrack]` in the Console
