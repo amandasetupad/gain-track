@@ -11,7 +11,9 @@ export function workoutsRouter(db) {
   router.get('/', async (req, res) => {
     const workouts = await db.prepare(`
       SELECT w.id, w.name, w.slug, w.created_at, w.updated_at, w.order_index,
-             (SELECT COUNT(*) FROM workout_exercises WHERE workout_id = w.id) as exercise_count
+             (SELECT COUNT(*) FROM workout_exercises WHERE workout_id = w.id) as exercise_count,
+             (SELECT MAX(s.ended_at) FROM sessions s
+              WHERE s.workout_id = w.id AND s.user_id = w.user_id AND s.ended_at IS NOT NULL) as last_completed_at
       FROM workouts w
       WHERE w.user_id = ?
       ORDER BY w.order_index ASC, w.updated_at DESC

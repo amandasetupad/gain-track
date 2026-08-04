@@ -11,6 +11,26 @@ function formatSessionDate(ts) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
 }
 
+function formatCreatedDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatLastCompleted(ts) {
+  if (!ts) return 'Never completed';
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((startOfToday - startOfDate) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Last done today';
+  if (diffDays === 1) return 'Last done yesterday';
+  if (diffDays < 7) return `Last done ${diffDays} days ago`;
+  if (diffDays < 30) return `Last done ${Math.floor(diffDays / 7)} wk ago`;
+  return `Last done ${formatSessionDate(ts)}`;
+}
+
 export default function Dashboard() {
   const queryClient = useQueryClient();
   const { data: workouts = [], isLoading } = useQuery('workouts', () => api.get('/workouts'));
@@ -160,6 +180,15 @@ export default function Dashboard() {
                     </h3>
                     <p className="text-sm text-zinc-500 mt-0.5 font-mono">
                       {w.exercise_count ?? 0} exercises
+                    </p>
+                    <p className="text-xs text-zinc-600 mt-2 font-mono leading-relaxed">
+                      {w.created_at ? (
+                        <span>Created {formatCreatedDate(w.created_at)}</span>
+                      ) : null}
+                      {w.created_at ? <span className="text-zinc-700"> · </span> : null}
+                      <span className={w.last_completed_at ? 'text-zinc-500' : 'text-zinc-600'}>
+                        {formatLastCompleted(w.last_completed_at)}
+                      </span>
                     </p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-zinc-500 group-hover:text-gain-500 transition-colors" />
