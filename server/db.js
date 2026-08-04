@@ -128,26 +128,37 @@ async function createSqliteDb() {
   };
 }
 
+export let dbDriver = 'unknown';
+
 export async function initDb() {
   if (process.env.DATABASE_URL) {
     try {
       const { createPgDb } = await import('./db-pg.js');
       const db = await createPgDb();
+      dbDriver = 'postgres';
       console.log('Using PostgreSQL (DATABASE_URL)');
       return db;
     } catch (err) {
       console.error('PostgreSQL init failed:', err.message);
       if (process.env.NODE_ENV === 'production') {
-        console.warn(
-          'Falling back to SQLite. Data will not persist across restarts. ' +
-            'Fix or remove DATABASE_URL in Render environment variables.'
+        console.error(
+          'FATAL: DATABASE_URL is set but PostgreSQL is unreachable. ' +
+            'Refusing to fall back to empty SQLite (that would wipe your data on every deploy). ' +
+            'Fix DATABASE_URL in Render → gain-track → Environment, then redeploy.'
         );
-        console.log('Using SQLite (server/data/workouts.db)');
-        return createSqliteDb();
       }
       throw err;
     }
   }
-  console.log('Using SQLite (server/data/workouts.db)');
+  dbDriver = 'sqlite';
+  if (process.env.NODE_ENV === 'production') {
+    console.warn(
+      'WARNING: DATABASE_URL is not set in production. ' +
+        'Using ephemeral SQLite — accounts and workouts will be LOST on every deploy/restart. ' +
+        'Set DATABASE_URL to your Render PostgreSQL Internal Database URL.'
+    );
+  } else {
+    console.log('Using SQLite (server/data/workouts.db)');
+  }
   return createSqliteDb();
 }

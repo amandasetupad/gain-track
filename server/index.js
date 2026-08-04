@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { initDb } from './db.js';
+import { initDb, dbDriver } from './db.js';
 import { authRouter } from './routes/auth.js';
 import { workoutsRouter } from './routes/workouts.js';
 import { sessionsRouter } from './routes/sessions.js';
@@ -36,7 +36,14 @@ async function start() {
   app.use('/api/sessions', authMiddleware, sessionsRouter(db));
   app.use('/api/share', shareRouter(db));
 
-  app.get('/api/health', (_, res) => res.json({ ok: true }));
+  app.get('/api/health', (_, res) => {
+    const body = { ok: true, db: dbDriver };
+    if (process.env.NODE_ENV === 'production' && dbDriver === 'sqlite') {
+      body.warning =
+        'Ephemeral SQLite — data is lost on every deploy. Set DATABASE_URL to Render PostgreSQL Internal URL.';
+    }
+    res.status(dbDriver === 'unknown' ? 503 : 200).json(body);
+  });
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);

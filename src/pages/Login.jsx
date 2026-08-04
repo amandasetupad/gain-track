@@ -9,7 +9,7 @@ const isBackendConfigured = () =>
   typeof import.meta.env.VITE_API_URL === 'string' && import.meta.env.VITE_API_URL.length > 0;
 
 const MSG_LOGIN_INVALID =
-  'Invalid email or password. If you signed up before the server was fixed, your account may have been reset — please sign up again.';
+  'Invalid email or password. Use the exact email you signed up with (check for typos). If you never created an account on this site, use Sign up instead.';
 
 export default function Login() {
   const [email, setEmail] = useState('');

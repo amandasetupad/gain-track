@@ -17,4 +17,5 @@ services:
       - key: CORS_ORIGIN
         sync: false
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
+        # Set once in Render dashboard — do NOT regenerate or all sessions break.

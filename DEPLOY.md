@@ -1,23 +1,60 @@
 # Deploy checklist (Vercel + Render)
 
+## Permanent setup (stop losing data)
+
+Data keeps disappearing when the backend uses **ephemeral SQLite** instead of **PostgreSQL**. After the latest code deploy:
+
+### 1. Render environment (gain-track web service)
+
+Set these **once** and do not change unless you mean to reset data:
+
+| Variable | Value |
+|----------|--------|
+| `DATABASE_URL` | From **gain-track-db** → **Info** → **Internal Database URL** (must start with `postgresql://`) |
+| `JWT_SECRET` | A long random string — **set once**, never regenerate on redeploy |
+| `NODE_ENV` | `production` |
+| `CORS_ORIGIN` | `https://gain-track-two.vercel.app` |
+
+Link the Postgres database to the web service in Render (Connections) so `DATABASE_URL` stays in sync.
+
+### 2. Verify after every deploy
+
+Open **https://gain-track.onrender.com/api/health** — must show:
+
+```json
+{"ok":true,"db":"postgres"}
+```
+
+If you see `"db":"sqlite"` or a `warning` field, **data is not persistent** — fix `DATABASE_URL` before using the app.
+
+In Render **Logs**, confirm: `Using PostgreSQL (DATABASE_URL)` — never `Falling back to SQLite`.
+
+### 3. Login email
+
+Use the **exact email** you registered with. `amanda@gmail.com` and `pipare.amanda@gmail.com` are different accounts.
+
+---
+
 ## Render crash: "Exited with status 1"
 
-If Render shows **Instance failed / Exited with status 1**, the backend crashed during startup — usually because **`DATABASE_URL`** is set but PostgreSQL cannot connect (missing SSL, expired database, wrong URL).
+If Render shows **Instance failed / Exited with status 1**, the backend crashed during startup — usually because **`DATABASE_URL`** is set but PostgreSQL cannot connect (wrong URL, database suspended, or network issue).
+
+The server **no longer falls back to empty SQLite** when `DATABASE_URL` is set — it fails loudly so you know immediately.
 
 **After pushing the latest code:**
 
 1. Render should auto-redeploy from `amandasetupad/gain-track` (main).
-2. Open **https://gain-track.onrender.com/api/health** — expect `{"ok":true}`.
-3. In Render → **gain-track** → **Logs**, confirm `Server running on port ...`.
+2. Open **https://gain-track.onrender.com/api/health** — expect `{"ok":true,"db":"postgres"}`.
+3. In Render → **gain-track** → **Logs**, confirm `Using PostgreSQL (DATABASE_URL)`.
 
-**Fix PostgreSQL (optional, for persistent data):**
+**Fix PostgreSQL:**
 
-- Render → **Environment** → set **DATABASE_URL** to your PostgreSQL **Internal Database URL** (from Render PostgreSQL → Info).
-- Or **remove DATABASE_URL** to use SQLite (data resets on each deploy/restart).
+- Render → **gain-track-db** → confirm database is **Available** (free tier suspends after 90 days inactivity).
+- Render → **gain-track** → **Environment** → set **DATABASE_URL** to PostgreSQL **Internal Database URL**.
 
-**Redeploy frontend (Vercel):** push triggers redeploy, or manually redeploy **gain-track-two** so login shows a timeout message instead of hanging forever.
+**Redeploy frontend (Vercel):** push triggers redeploy, or manually redeploy **gain-track-two**.
 
-**Lost account or workouts?** See **[RECOVERY.md](./RECOVERY.md)** — your data may still exist in Render PostgreSQL.
+**Lost account or workouts?** See **[RECOVERY.md](./RECOVERY.md)**.
 
 ---
 

@@ -82,6 +82,8 @@ function pgPoolConfig() {
 
 export async function createPgDb() {
   const pool = new Pool(pgPoolConfig());
+  // Verify connection before running migrations.
+  await pool.query('SELECT 1');
   const statements = SCHEMA.split(';').map((s) => s.trim()).filter(Boolean);
   for (const sql of statements) {
     try {
