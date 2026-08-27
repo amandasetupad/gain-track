@@ -2,9 +2,17 @@ import React, { useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, StopCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Plus, StopCircle, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
 import { collapseLogsBySet } from '../utils/collapseLogs';
+
+function setHasLoggedData(set) {
+  return (
+    set?.saved ||
+    (set?.reps !== '' && set?.reps != null) ||
+    (set?.weight_kg !== '' && set?.weight_kg != null)
+  );
+}
 
 export default function WorkoutSession() {
   const { id } = useParams();
@@ -16,7 +24,9 @@ export default function WorkoutSession() {
   const [sessionExercises, setSessionExercises] = useState([]);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
+  const [revealedCount, setRevealedCount] = useState(1);
   const initializedSessionRef = React.useRef(null);
+  const prevRevealedRef = React.useRef(1);
 
   const { data: workout, isLoading } = useQuery(
     ['workout', id],
@@ -114,6 +124,8 @@ export default function WorkoutSession() {
     if (!sessionId || !exercises.length || !lastSessionFetched) return;
     if (initializedSessionRef.current === sessionId) return;
     initializedSessionRef.current = sessionId;
+    setRevealedCount(1);
+    prevRevealedRef.current = 1;
     const initial = {};
     exercises.forEach((ex) => {
       const exLogs = lastSessionSetsByExercise[ex.id] || [];
@@ -128,6 +140,31 @@ export default function WorkoutSession() {
     setLogs(initial);
   }, [sessionId, exercises, lastSessionFetched, lastSessionSetsByExercise]);
 
+  const isExerciseComplete = React.useCallback((exerciseId) => {
+    const list = logs[exerciseId] || [];
+    return list.length > 0 && list.every(setHasLoggedData);
+  }, [logs]);
+
+  const goToNextExercise = useCallback(() => {
+    setRevealedCount((count) => Math.min(count + 1, exercises.length));
+  }, [exercises.length]);
+
+  React.useEffect(() => {
+    const current = exercises[revealedCount - 1];
+    if (!current || revealedCount >= exercises.length) return;
+    if (isExerciseComplete(current.id)) {
+      setRevealedCount((count) => Math.min(count + 1, exercises.length));
+    }
+  }, [exercises, revealedCount, isExerciseComplete]);
+
+  React.useEffect(() => {
+    if (revealedCount > prevRevealedRef.current) {
+      const el = document.getElementById(`exercise-card-${revealedCount - 1}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    prevRevealedRef.current = revealedCount;
+  }, [revealedCount]);
+
   React.useEffect(() => {
     if (workout?.id && !sessionId && !startSessionMutation.isLoading) {
       startSessionMutation.mutate();
@@ -138,7 +175,18 @@ export default function WorkoutSession() {
     (payload) => api.put(`/workouts/${id}`, payload),
     {
       onSuccess: (updated) => {
-        setSessionExercises(updated.exercises || []);
+        const next = updated.exercises || [];
+        setSessionExercises(next);
+        setRevealedCount(Math.max(1, next.length));
+        setLogs((prev) => {
+          const copy = { ...prev };
+          next.forEach((ex) => {
+            if (!copy[ex.id]) {
+              copy[ex.id] = [{ set_index: 0, reps: '', weight_kg: '', saved: false }];
+            }
+          });
+          return copy;
+        });
         queryClient.invalidateQueries(['workout', id]);
         queryClient.invalidateQueries('workouts');
         setNewExerciseName('');
@@ -244,14 +292,7 @@ export default function WorkoutSession() {
   }, [sessionId, exercises, logs]);
 
   const hasAnyLoggedData = React.useMemo(() => {
-    return exercises.some((ex) =>
-      (logs[ex.id] || []).some(
-        (set) =>
-          set.saved ||
-          (set.reps !== '' && set.reps != null) ||
-          (set.weight_kg !== '' && set.weight_kg != null)
-      )
-    );
+    return exercises.some((ex) => (logs[ex.id] || []).some(setHasLoggedData));
   }, [exercises, logs]);
 
   const handleEndSession = useCallback(async () => {
@@ -286,7 +327,9 @@ export default function WorkoutSession() {
         <h1 className="text-xl font-bold text-zinc-100 font-mono truncate">
           {workout.name} — Session
         </h1>
-        <span className="w-24" aria-hidden />
+        <span className="w-24 text-right text-xs text-zinc-500 font-mono" aria-hidden={exercises.length === 0}>
+          {exercises.length > 0 ? `${Math.min(revealedCount, exercises.length)} / ${exercises.length}` : ''}
+        </span>
       </div>
 
       {!sessionId && (
@@ -301,28 +344,50 @@ export default function WorkoutSession() {
 
       <div className="space-y-6">
         <AnimatePresence>
-          {exercises.map((ex, idx) => (
+          {exercises.slice(0, Math.max(1, Math.min(revealedCount, exercises.length || 1))).map((ex, idx) => {
+            const isCurrent = idx === revealedCount - 1;
+            const isPast = idx < revealedCount - 1;
+            const isDone = isExerciseComplete(ex.id);
+            const hasLogged = (logs[ex.id] || []).some(setHasLoggedData);
+            const canGoNext = isCurrent && idx < exercises.length - 1;
+            return (
             <motion.section
               key={ex.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
+              id={`exercise-card-${idx}`}
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="bg-slab-900 border border-slab-850 rounded-xl p-5"
+              className={`rounded-2xl p-5 sm:p-6 ${
+                isCurrent
+                  ? 'bg-slab-900 border border-gain-500/40 shadow-[0_0_24px_-8px_rgba(34,197,94,0.35)]'
+                  : 'bg-slab-900/80 border border-slab-850'
+              }`}
             >
-              <div className="mb-4">
-                <h2 className="font-semibold text-zinc-100 font-mono">{ex.name}</h2>
-                {lastSetByExercise[ex.id] && (
-                  <p className="text-sm text-zinc-500 font-mono mt-0.5">
-                    Last: {[lastSetByExercise[ex.id].reps != null && `${lastSetByExercise[ex.id].reps} reps`, lastSetByExercise[ex.id].weight_kg != null && `${lastSetByExercise[ex.id].weight_kg} kg`].filter(Boolean).join(' × ')}
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-mono mb-1">
+                    Exercise {idx + 1}
                   </p>
-                )}
-                {lastSessionSetsByExercise[ex.id]?.length > 0 && (
-                  <p className="text-xs text-zinc-500 font-mono mt-1">
-                    Last session: {lastSessionSetsByExercise[ex.id].map((log, i) => {
-                      const parts = [log.reps != null && `${log.reps}`, log.weight_kg != null && `${log.weight_kg} kg`].filter(Boolean);
-                      return `Set ${i + 1}: ${parts.length ? parts.join('×') : '—'}`;
-                    }).join(', ')}
-                  </p>
+                  <h2 className="font-semibold text-zinc-100 font-mono">{ex.name}</h2>
+                  {lastSetByExercise[ex.id] && (
+                    <p className="text-sm text-zinc-500 font-mono mt-0.5">
+                      Last: {[lastSetByExercise[ex.id].reps != null && `${lastSetByExercise[ex.id].reps} reps`, lastSetByExercise[ex.id].weight_kg != null && `${lastSetByExercise[ex.id].weight_kg} kg`].filter(Boolean).join(' × ')}
+                    </p>
+                  )}
+                  {lastSessionSetsByExercise[ex.id]?.length > 0 && (
+                    <p className="text-xs text-zinc-500 font-mono mt-1">
+                      Last session: {lastSessionSetsByExercise[ex.id].map((log, i) => {
+                        const parts = [log.reps != null && `${log.reps}`, log.weight_kg != null && `${log.weight_kg} kg`].filter(Boolean);
+                        return `Set ${i + 1}: ${parts.length ? parts.join('×') : '—'}`;
+                      }).join(', ')}
+                    </p>
+                  )}
+                </div>
+                {(isPast || isDone) && (
+                  <span className="inline-flex items-center gap-1 text-gain-500 text-xs font-mono flex-shrink-0 mt-1">
+                    <Check className="w-4 h-4" />
+                    Done
+                  </span>
                 )}
               </div>
               <div className="space-y-0">
@@ -383,8 +448,25 @@ export default function WorkoutSession() {
                   Add set
                 </button>
               </div>
+              {canGoNext && (
+                <button
+                  type="button"
+                  onClick={goToNextExercise}
+                  disabled={!hasLogged}
+                  className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gain-500 hover:bg-gain-600 text-slab-950 font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next exercise
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+              {canGoNext && !hasLogged && (
+                <p className="mt-2 text-center text-xs text-zinc-500 font-mono">
+                  Log a set to continue, or add more sets first.
+                </p>
+              )}
             </motion.section>
-          ))}
+            );
+          })}
         </AnimatePresence>
       </div>
 
