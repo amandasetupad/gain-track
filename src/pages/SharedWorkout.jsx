@@ -4,6 +4,7 @@ import { useMutation, useQuery } from 'react-query';
 import { motion } from 'framer-motion';
 import { Dumbbell, LogIn } from 'lucide-react';
 import { api } from '../api/client';
+import ExerciseMedia from '../components/ExerciseMedia';
 import { useAuth } from '../context/AuthContext';
 
 export default function SharedWorkout() {
@@ -102,10 +103,13 @@ export default function SharedWorkout() {
             {(workout.exercises || []).map((ex, i) => (
               <li
                 key={ex.id}
-                className="flex items-center gap-3 py-2.5 px-3 rounded-lg bg-slab-850/50 text-zinc-200 font-mono text-sm"
+                className="flex flex-col gap-1 py-2.5 px-3 rounded-lg bg-slab-850/50 text-zinc-200 font-mono text-sm"
               >
-                <span className="text-zinc-500 w-6">{i + 1}.</span>
-                {ex.name}
+                <div className="flex items-center gap-3">
+                  <span className="text-zinc-500 w-6">{i + 1}.</span>
+                  {ex.name}
+                </div>
+                <ExerciseMedia url={ex.media_url} size="sm" alt={ex.name} />
               </li>
             ))}
           </ul>

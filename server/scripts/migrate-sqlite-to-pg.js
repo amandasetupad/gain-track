@@ -47,6 +47,10 @@ const { createPgDb } = await import('../db-pg.js');
 await createPgDb();
 console.log('PostgreSQL schema ensured.');
 
+const exHasMedia = sqliteAll('PRAGMA table_info(workout_exercises)').some(
+  (c) => c.name === 'media_url'
+);
+
 const tables = [
   {
     name: 'users',
@@ -62,9 +66,18 @@ const tables = [
   },
   {
     name: 'workout_exercises',
-    sql: 'INSERT INTO workout_exercises (id, workout_id, name, order_index) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING',
-    rows: sqliteAll('SELECT id, workout_id, name, order_index FROM workout_exercises'),
-    params: (r) => [r.id, r.workout_id, r.name, r.order_index ?? 0],
+    sql: exHasMedia
+      ? 'INSERT INTO workout_exercises (id, workout_id, name, order_index, media_url) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING'
+      : 'INSERT INTO workout_exercises (id, workout_id, name, order_index) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING',
+    rows: sqliteAll(
+      exHasMedia
+        ? 'SELECT id, workout_id, name, order_index, media_url FROM workout_exercises'
+        : 'SELECT id, workout_id, name, order_index FROM workout_exercises'
+    ),
+    params: (r) =>
+      exHasMedia
+        ? [r.id, r.workout_id, r.name, r.order_index ?? 0, r.media_url ?? null]
+        : [r.id, r.workout_id, r.name, r.order_index ?? 0],
   },
   {
     name: 'sessions',

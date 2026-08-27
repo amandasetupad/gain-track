@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import { collapseLogsBySet } from '../lib/collapseLogs.js';
+import { sanitizeMediaUrl } from '../lib/mediaUrl.js';
+
+const EXERCISE_COLUMNS = 'id, name, order_index, media_url';
 
 function slugify(name) {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + nanoid(6);
@@ -49,7 +52,7 @@ export function workoutsRouter(db) {
     ).get(req.params.id, req.userId);
     if (!workout) return res.status(404).json({ error: 'Workout not found' });
     const exercises = await db.prepare(
-      'SELECT id, name, order_index FROM workout_exercises WHERE workout_id = ? ORDER BY order_index'
+      `SELECT ${EXERCISE_COLUMNS} FROM workout_exercises WHERE workout_id = ? ORDER BY order_index`
     ).all(workout.id);
     res.json({ ...workout, exercises });
   });
@@ -69,12 +72,15 @@ export function workoutsRouter(db) {
     ).run(id, req.userId, name.trim(), slug, nextIndex);
     for (let i = 0; i < exercises.length; i++) {
       const exId = nanoid();
+      const mediaUrl = sanitizeMediaUrl(exercises[i].media_url ?? exercises[i].link);
       await db.prepare(
-        'INSERT INTO workout_exercises (id, workout_id, name, order_index) VALUES (?, ?, ?, ?)'
-      ).run(exId, id, exercises[i].name?.trim() || `Exercise ${i + 1}`, i);
+        'INSERT INTO workout_exercises (id, workout_id, name, order_index, media_url) VALUES (?, ?, ?, ?, ?)'
+      ).run(exId, id, exercises[i].name?.trim() || `Exercise ${i + 1}`, i, mediaUrl);
     }
     const workout = await db.prepare('SELECT * FROM workouts WHERE id = ?').get(id);
-    const exList = await db.prepare('SELECT id, name, order_index FROM workout_exercises WHERE workout_id = ? ORDER BY order_index').all(id);
+    const exList = await db.prepare(
+      `SELECT ${EXERCISE_COLUMNS} FROM workout_exercises WHERE workout_id = ? ORDER BY order_index`
+    ).all(id);
     res.status(201).json({ ...workout, exercises: exList });
   });
 
@@ -90,13 +96,16 @@ export function workoutsRouter(db) {
       for (let i = 0; i < exercises.length; i++) {
         const ex = exercises[i];
         const exId = ex.id && /^[a-zA-Z0-9_-]+$/.test(ex.id) ? ex.id : nanoid();
+        const mediaUrl = sanitizeMediaUrl(ex.media_url ?? ex.link);
         await db.prepare(
-          'INSERT INTO workout_exercises (id, workout_id, name, order_index) VALUES (?, ?, ?, ?)'
-        ).run(exId, req.params.id, ex.name?.trim() || `Exercise ${i + 1}`, i);
+          'INSERT INTO workout_exercises (id, workout_id, name, order_index, media_url) VALUES (?, ?, ?, ?, ?)'
+        ).run(exId, req.params.id, ex.name?.trim() || `Exercise ${i + 1}`, i, mediaUrl);
       }
     }
     const updated = await db.prepare('SELECT * FROM workouts WHERE id = ?').get(req.params.id);
-    const exList = await db.prepare('SELECT id, name, order_index FROM workout_exercises WHERE workout_id = ? ORDER BY order_index').all(req.params.id);
+    const exList = await db.prepare(
+      `SELECT ${EXERCISE_COLUMNS} FROM workout_exercises WHERE workout_id = ? ORDER BY order_index`
+    ).all(req.params.id);
     res.json({ ...updated, exercises: exList });
   });
 

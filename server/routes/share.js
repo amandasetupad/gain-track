@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
 import { optionalAuth, authMiddleware } from '../middleware/auth.js';
+import { sanitizeMediaUrl } from '../lib/mediaUrl.js';
 
 export function shareRouter(db) {
   const router = Router();
@@ -11,7 +12,7 @@ export function shareRouter(db) {
     ).get(req.params.slug);
     if (!workout) return res.status(404).json({ error: 'Workout not found' });
     const exercises = await db.prepare(
-      'SELECT id, name, order_index FROM workout_exercises WHERE workout_id = ? ORDER BY order_index'
+      'SELECT id, name, order_index, media_url FROM workout_exercises WHERE workout_id = ? ORDER BY order_index'
     ).all(workout.id);
     const isOwner = req.userId
       ? ((await db.prepare('SELECT user_id FROM workouts WHERE id = ?').get(workout.id))?.user_id === req.userId)
@@ -28,7 +29,7 @@ export function shareRouter(db) {
     if (!source) return res.status(404).json({ error: 'Workout not found' });
 
     const exercises = await db
-      .prepare('SELECT name, order_index FROM workout_exercises WHERE workout_id = ? ORDER BY order_index')
+      .prepare('SELECT name, order_index, media_url FROM workout_exercises WHERE workout_id = ? ORDER BY order_index')
       .all(source.id);
 
     // Generate a new workout for this user with a unique slug.
@@ -49,15 +50,15 @@ export function shareRouter(db) {
       const exId = nanoid();
       const ex = exercises[i];
       await db
-        .prepare('INSERT INTO workout_exercises (id, workout_id, name, order_index) VALUES (?, ?, ?, ?)')
-        .run(exId, newId, ex.name || `Exercise ${i + 1}`, i);
+        .prepare('INSERT INTO workout_exercises (id, workout_id, name, order_index, media_url) VALUES (?, ?, ?, ?, ?)')
+        .run(exId, newId, ex.name || `Exercise ${i + 1}`, i, sanitizeMediaUrl(ex.media_url));
     }
 
     const created = await db
       .prepare('SELECT id, name, slug, created_at, updated_at, order_index FROM workouts WHERE id = ?')
       .get(newId);
     const createdExercises = await db
-      .prepare('SELECT id, name, order_index FROM workout_exercises WHERE workout_id = ? ORDER BY order_index')
+      .prepare('SELECT id, name, order_index, media_url FROM workout_exercises WHERE workout_id = ? ORDER BY order_index')
       .all(newId);
 
     res.status(201).json({ ...created, exercises: createdExercises });

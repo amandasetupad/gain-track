@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Check, ChevronRight, Plus, StopCircle, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
+import ExerciseMedia from '../components/ExerciseMedia';
 import { collapseLogsBySet } from '../utils/collapseLogs';
 
 function setHasLoggedData(set) {
@@ -206,7 +207,11 @@ export default function WorkoutSession() {
     const payload = {
       name: workout.name,
       exercises: [
-        ...currentExercises.map((ex) => ({ id: ex.id, name: ex.name })),
+        ...currentExercises.map((ex) => ({
+          id: ex.id,
+          name: ex.name,
+          media_url: ex.media_url || null,
+        })),
         { id: newId, name: trimmed },
       ],
     };
@@ -363,32 +368,35 @@ export default function WorkoutSession() {
                   : 'bg-slab-900/80 border border-slab-850'
               }`}
             >
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-mono mb-1">
-                    Exercise {idx + 1}
-                  </p>
-                  <h2 className="font-semibold text-zinc-100 font-mono">{ex.name}</h2>
-                  {lastSetByExercise[ex.id] && (
-                    <p className="text-sm text-zinc-500 font-mono mt-0.5">
-                      Last: {[lastSetByExercise[ex.id].reps != null && `${lastSetByExercise[ex.id].reps} reps`, lastSetByExercise[ex.id].weight_kg != null && `${lastSetByExercise[ex.id].weight_kg} kg`].filter(Boolean).join(' × ')}
+              <div className="mb-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-mono mb-1">
+                      Exercise {idx + 1}
                     </p>
-                  )}
-                  {lastSessionSetsByExercise[ex.id]?.length > 0 && (
-                    <p className="text-xs text-zinc-500 font-mono mt-1">
-                      Last session: {lastSessionSetsByExercise[ex.id].map((log, i) => {
-                        const parts = [log.reps != null && `${log.reps}`, log.weight_kg != null && `${log.weight_kg} kg`].filter(Boolean);
-                        return `Set ${i + 1}: ${parts.length ? parts.join('×') : '—'}`;
-                      }).join(', ')}
-                    </p>
+                    <h2 className="font-semibold text-zinc-100 font-mono">{ex.name}</h2>
+                    {lastSetByExercise[ex.id] && (
+                      <p className="text-sm text-zinc-500 font-mono mt-0.5">
+                        Last: {[lastSetByExercise[ex.id].reps != null && `${lastSetByExercise[ex.id].reps} reps`, lastSetByExercise[ex.id].weight_kg != null && `${lastSetByExercise[ex.id].weight_kg} kg`].filter(Boolean).join(' × ')}
+                      </p>
+                    )}
+                    {lastSessionSetsByExercise[ex.id]?.length > 0 && (
+                      <p className="text-xs text-zinc-500 font-mono mt-1">
+                        Last session: {lastSessionSetsByExercise[ex.id].map((log, i) => {
+                          const parts = [log.reps != null && `${log.reps}`, log.weight_kg != null && `${log.weight_kg} kg`].filter(Boolean);
+                          return `Set ${i + 1}: ${parts.length ? parts.join('×') : '—'}`;
+                        }).join(', ')}
+                      </p>
+                    )}
+                  </div>
+                  {(isPast || isDone) && (
+                    <span className="inline-flex items-center gap-1 text-gain-500 text-xs font-mono flex-shrink-0 mt-1">
+                      <Check className="w-4 h-4" />
+                      Done
+                    </span>
                   )}
                 </div>
-                {(isPast || isDone) && (
-                  <span className="inline-flex items-center gap-1 text-gain-500 text-xs font-mono flex-shrink-0 mt-1">
-                    <Check className="w-4 h-4" />
-                    Done
-                  </span>
-                )}
+                <ExerciseMedia url={ex.media_url} size="md" alt={ex.name} />
               </div>
               <div className="space-y-0">
                 {/* Header and rows share the same grid so columns line up */}

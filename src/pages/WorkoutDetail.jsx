@@ -14,7 +14,16 @@ import {
   Pencil,
 } from 'lucide-react';
 import { api } from '../api/client';
+import ExerciseMedia from '../components/ExerciseMedia';
 import { collapseLogsBySet } from '../utils/collapseLogs';
+
+function snapshotExercises(list) {
+  return (list || []).map((ex) => ({
+    id: ex.id || '',
+    name: ex.name || '',
+    media_url: ex.media_url || '',
+  }));
+}
 
 const isNew = (id) => id === 'new';
 
@@ -75,17 +84,21 @@ export default function WorkoutDetail() {
   React.useEffect(() => {
     if (workout) {
       setName(workout.name || '');
-      const initialExercises = workout.exercises?.length ? workout.exercises : [{ id: '', name: '' }];
+      const initialExercises = workout.exercises?.length
+        ? workout.exercises.map((ex) => ({
+            id: ex.id || '',
+            name: ex.name || '',
+            media_url: ex.media_url || '',
+          }))
+        : [{ id: '', name: '', media_url: '' }];
       setExercises(initialExercises);
-      // Capture a \"saved\" snapshot used to detect unsaved changes.
+      // Capture a "saved" snapshot used to detect unsaved changes.
       setLastSavedName(workout.name || '');
-      setLastSavedExercises(
-        (initialExercises || []).map((ex) => ({ id: ex.id || '', name: ex.name || '' }))
-      );
+      setLastSavedExercises(snapshotExercises(initialExercises));
     }
     if (isNew(id)) {
       setName('');
-      setExercises([{ id: '', name: '' }]);
+      setExercises([{ id: '', name: '', media_url: '' }]);
       setLastSavedName('');
       setLastSavedExercises([]);
     }
@@ -95,14 +108,18 @@ export default function WorkoutDetail() {
     // New workout: consider dirty only if the user typed a name or any exercise name.
     if (isNew(id) && !workout) {
       if (name.trim()) return true;
-      return exercises.some((ex) => ex.name?.trim());
+      return exercises.some((ex) => ex.name?.trim() || ex.media_url?.trim());
     }
-    const current = (exercises || []).map((ex) => ({ id: ex.id || '', name: ex.name || '' }));
+    const current = snapshotExercises(exercises);
     const saved = lastSavedExercises || [];
     if (name !== lastSavedName) return true;
     if (current.length !== saved.length) return true;
     for (let i = 0; i < current.length; i++) {
-      if (current[i].id !== saved[i].id || current[i].name !== saved[i].name) {
+      if (
+        current[i].id !== saved[i].id ||
+        current[i].name !== saved[i].name ||
+        current[i].media_url !== saved[i].media_url
+      ) {
         return true;
       }
     }
@@ -155,7 +172,7 @@ export default function WorkoutDetail() {
     }
   );
 
-  const addExercise = () => setExercises((e) => [...e, { id: '', name: '' }]);
+  const addExercise = () => setExercises((e) => [...e, { id: '', name: '', media_url: '' }]);
   const removeExercise = (index) =>
     setExercises((e) => e.filter((_, i) => i !== index));
   const updateExercise = (index, field, value) =>
@@ -166,7 +183,14 @@ export default function WorkoutDetail() {
   const save = () => {
     const payload = {
       name: name.trim(),
-      exercises: exercises.filter((ex) => ex.name?.trim()).map((ex, i) => ({ ...ex, name: ex.name?.trim(), order_index: i })),
+      exercises: exercises
+        .filter((ex) => ex.name?.trim())
+        .map((ex, i) => ({
+          ...ex,
+          name: ex.name.trim(),
+          media_url: (ex.media_url || '').trim() || null,
+          order_index: i,
+        })),
     };
     if (isNew(id)) createMutation.mutate(payload);
     else updateMutation.mutate(payload);
@@ -201,8 +225,14 @@ export default function WorkoutDetail() {
   const cancelEdit = () => {
     if (workout) {
       setName(workout.name || '');
-      const initial = workout.exercises?.length ? workout.exercises : [{ id: '', name: '' }];
-      setExercises(initial.map((ex) => ({ id: ex.id || '', name: ex.name || '' })));
+      const initial = workout.exercises?.length ? workout.exercises : [{ id: '', name: '', media_url: '' }];
+      setExercises(
+        initial.map((ex) => ({
+          id: ex.id || '',
+          name: ex.name || '',
+          media_url: ex.media_url || '',
+        }))
+      );
     }
     setIsEditing(false);
   };
@@ -293,12 +323,15 @@ export default function WorkoutDetail() {
                 return (
                   <li
                     key={ex.id || index}
-                    className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 py-2 px-3 rounded-lg bg-slab-850/50 border border-slab-850"
+                    className="flex flex-col gap-0.5 py-2 px-3 rounded-lg bg-slab-850/50 border border-slab-850"
                   >
-                    <span className="font-mono text-zinc-200">{ex.name || `Exercise ${index + 1}`}</span>
-                    {lastStr && (
-                      <span className="text-xs font-mono text-zinc-500">Last: {lastStr}</span>
-                    )}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3">
+                      <span className="font-mono text-zinc-200">{ex.name || `Exercise ${index + 1}`}</span>
+                      {lastStr && (
+                        <span className="text-xs font-mono text-zinc-500">Last: {lastStr}</span>
+                      )}
+                    </div>
+                    <ExerciseMedia url={ex.media_url} size="sm" alt={ex.name} />
                   </li>
                 );
               })}
@@ -383,31 +416,40 @@ export default function WorkoutDetail() {
                           initial={{ opacity: 0, x: -8 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 8 }}
-                          className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"
+                          className="flex flex-col gap-1.5 rounded-lg border border-slab-850 bg-slab-850/30 p-2 sm:p-2.5"
                         >
-                          <div className="flex items-center gap-2 flex-1">
-                            <GripVertical className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-                            <input
-                              type="text"
-                              value={ex.name}
-                              onChange={(e) => updateExercise(index, 'name', e.target.value)}
-                              placeholder={`Exercise ${index + 1}`}
-                              className="flex-1 px-4 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-sm"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeExercise(index)}
-                              className="p-2 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-slab-850"
-                              aria-label="Remove"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <GripVertical className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                              <input
+                                type="text"
+                                value={ex.name}
+                                onChange={(e) => updateExercise(index, 'name', e.target.value)}
+                                placeholder={`Exercise ${index + 1}`}
+                                className="flex-1 min-w-0 px-4 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeExercise(index)}
+                                className="p-2 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-slab-850"
+                                aria-label="Remove"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                            {lastStr && (
+                              <span className="text-xs font-mono text-zinc-500 sm:min-w-[8rem] pl-6 sm:pl-0">
+                                Last: {lastStr}
+                              </span>
+                            )}
                           </div>
-                          {lastStr && (
-                            <span className="text-xs font-mono text-zinc-500 sm:min-w-[8rem] pl-6 sm:pl-0">
-                              Last: {lastStr}
-                            </span>
-                          )}
+                          <input
+                            type="url"
+                            value={ex.media_url || ''}
+                            onChange={(e) => updateExercise(index, 'media_url', e.target.value)}
+                            placeholder="Image or video link (optional)"
+                            className="w-full px-4 py-1.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-xs"
+                          />
                         </motion.div>
                       );
                     })}

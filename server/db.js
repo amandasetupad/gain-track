@@ -45,6 +45,7 @@ async function createSqliteDb() {
     workout_id TEXT NOT NULL,
     name TEXT NOT NULL,
     order_index INTEGER NOT NULL DEFAULT 0,
+    media_url TEXT,
     FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
   );
   CREATE TABLE IF NOT EXISTS sessions (
@@ -81,6 +82,11 @@ async function createSqliteDb() {
   // In case workouts table already existed without order_index, try to add it.
   try {
     internalDb.run('ALTER TABLE workouts ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0');
+  } catch {
+    // ignore if column already exists
+  }
+  try {
+    internalDb.run('ALTER TABLE workout_exercises ADD COLUMN media_url TEXT');
   } catch {
     // ignore if column already exists
   }

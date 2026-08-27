@@ -30,6 +30,7 @@ const SCHEMA = `
     workout_id TEXT NOT NULL,
     name TEXT NOT NULL,
     order_index INTEGER NOT NULL DEFAULT 0,
+    media_url TEXT,
     FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
   );
   CREATE TABLE IF NOT EXISTS sessions (
@@ -60,6 +61,7 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_exercise_logs_exercise ON exercise_logs(workout_exercise_id);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_workouts_slug ON workouts(slug);
   ALTER TABLE workouts ADD COLUMN IF NOT EXISTS order_index INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS media_url TEXT;
 `;
 
 function pgPoolConfig() {
