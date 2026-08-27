@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
+import { collapseLogsBySet } from '../lib/collapseLogs.js';
 
 function slugify(name) {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + nanoid(6);
@@ -37,9 +38,9 @@ export function workoutsRouter(db) {
     if (!session) return res.json(null);
     const logs = await db.prepare(`
       SELECT id, workout_exercise_id, exercise_name, set_index, reps, weight_kg, logged_at
-      FROM exercise_logs WHERE session_id = ? ORDER BY logged_at
+      FROM exercise_logs WHERE session_id = ? ORDER BY set_index, logged_at
     `).all(session.id);
-    res.json({ ...session, logs });
+    res.json({ ...session, logs: collapseLogsBySet(logs) });
   });
 
   router.get('/:id', async (req, res) => {

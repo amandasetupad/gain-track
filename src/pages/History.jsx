@@ -13,6 +13,7 @@ import {
 import { motion } from 'framer-motion';
 import { TrendingUp, Dumbbell } from 'lucide-react';
 import { api } from '../api/client';
+import { collapseLogsBySet } from '../utils/collapseLogs';
 
 function formatDate(ts) {
   if (!ts) return '';
@@ -88,10 +89,15 @@ export default function History() {
     return { days, monthLabel };
   }, [sessions]);
 
+  const collapsedHistory = useMemo(
+    () => collapseLogsBySet(historyByExercise),
+    [historyByExercise]
+  );
+
   const chartData = useMemo(() => {
-    if (!historyByExercise.length) return [];
+    if (!collapsedHistory.length) return [];
     const byDate = {};
-    historyByExercise.forEach((log) => {
+    collapsedHistory.forEach((log) => {
       const key = formatDate(log.started_at);
       if (!byDate[key]) byDate[key] = { date: key, maxWeight: 0, maxReps: 0, volume: 0, count: 0 };
       const w = log.weight_kg || 0;
@@ -104,7 +110,7 @@ export default function History() {
     return Object.values(byDate).sort(
       (a, b) => new Date(a.date) - new Date(b.date)
     );
-  }, [historyByExercise]);
+  }, [collapsedHistory]);
 
   return (
     <div className="space-y-6">
@@ -196,7 +202,7 @@ export default function History() {
           <div className="mt-8 py-12 text-center text-zinc-500">Loading history...</div>
         )}
 
-        {selectedExercise && !isLoading && historyByExercise.length > 0 && (
+        {selectedExercise && !isLoading && collapsedHistory.length > 0 && (
           <>
             <div className="mt-6 mb-6">
               <h3 className="text-sm font-medium text-zinc-400 mb-1 font-mono">
@@ -216,7 +222,7 @@ export default function History() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...historyByExercise]
+                    {[...collapsedHistory]
                       .sort((a, b) => (b.logged_at || 0) - (a.logged_at || 0))
                       .map((log, i) => (
                         <tr key={log.id || i} className="border-t border-slab-850 text-zinc-300">

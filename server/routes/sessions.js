@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { nanoid } from 'nanoid';
+import { collapseLogsBySet } from '../lib/collapseLogs.js';
 
 export function sessionsRouter(db) {
   const router = Router();
@@ -75,9 +76,9 @@ export function sessionsRouter(db) {
     if (!session) return res.status(404).json({ error: 'Session not found' });
     const logs = await db.prepare(`
       SELECT id, workout_exercise_id, exercise_name, set_index, reps, weight_kg, logged_at
-      FROM exercise_logs WHERE session_id = ? ORDER BY logged_at
+      FROM exercise_logs WHERE session_id = ? ORDER BY set_index, logged_at
     `).all(req.params.id);
-    res.json({ ...session, logs });
+    res.json({ ...session, logs: collapseLogsBySet(logs) });
   });
 
   router.patch('/:id/end', async (req, res) => {
@@ -96,6 +97,31 @@ export function sessionsRouter(db) {
     if (workout_exercise_id == null || exercise_name == null || set_index == null) {
       return res.status(400).json({ error: 'workout_exercise_id, exercise_name, set_index required' });
     }
+    const existingRows = await db.prepare(`
+      SELECT id, reps, weight_kg, logged_at
+      FROM exercise_logs
+      WHERE session_id = ? AND workout_exercise_id = ? AND set_index = ?
+      ORDER BY logged_at DESC
+    `).all(req.params.id, workout_exercise_id, set_index);
+
+    if (existingRows.length > 0) {
+      const keep = existingRows[0];
+      let nextReps = reps != null ? reps : keep.reps;
+      let nextWeight = weight_kg != null ? weight_kg : keep.weight_kg;
+      for (const row of existingRows) {
+        if (nextReps == null && row.reps != null) nextReps = row.reps;
+        if (nextWeight == null && row.weight_kg != null) nextWeight = row.weight_kg;
+      }
+      await db.prepare(`
+        UPDATE exercise_logs SET reps = ?, weight_kg = ?, exercise_name = ? WHERE id = ?
+      `).run(nextReps, nextWeight, exercise_name, keep.id);
+      for (const row of existingRows.slice(1)) {
+        await db.prepare('DELETE FROM exercise_logs WHERE id = ?').run(row.id);
+      }
+      const log = await db.prepare('SELECT * FROM exercise_logs WHERE id = ?').get(keep.id);
+      return res.status(200).json(log);
+    }
+
     const id = nanoid();
     await db.prepare(`
       INSERT INTO exercise_logs (id, session_id, workout_exercise_id, exercise_name, set_index, reps, weight_kg)

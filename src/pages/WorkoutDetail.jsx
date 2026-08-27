@@ -14,6 +14,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { collapseLogsBySet } from '../utils/collapseLogs';
 
 const isNew = (id) => id === 'new';
 
@@ -24,11 +25,12 @@ function formatSessionDate(ts) {
 }
 
 function lastSetPerExercise(logs) {
-  if (!logs?.length) return {};
+  const collapsed = collapseLogsBySet(logs);
+  if (!collapsed.length) return {};
   const byEx = {};
-  logs.forEach((log) => {
+  collapsed.forEach((log) => {
     const exId = log.workout_exercise_id;
-    if (!byEx[exId] || (log.logged_at > (byEx[exId].logged_at || 0))) {
+    if (!byEx[exId] || (log.set_index ?? 0) >= (byEx[exId].set_index ?? 0)) {
       byEx[exId] = log;
     }
   });
@@ -68,6 +70,7 @@ export default function WorkoutDetail() {
     () => api.get(`/workouts/${id}/last-session`),
     { enabled: !isNew(id) && !!workout?.id }
   );
+  const lastSessionSetCount = collapseLogsBySet(lastSession?.logs).length;
 
   React.useEffect(() => {
     if (workout) {
@@ -260,8 +263,8 @@ export default function WorkoutDetail() {
         >
           <p className="text-sm text-zinc-400 font-mono">
             Last session ended <span className="text-zinc-200">{formatSessionDate(lastSession.ended_at)}</span>
-            {lastSession.logs?.length > 0 && (
-              <span className="text-zinc-500"> · {lastSession.logs.length} set{lastSession.logs.length !== 1 ? 's' : ''} logged</span>
+            {lastSessionSetCount > 0 && (
+              <span className="text-zinc-500"> · {lastSessionSetCount} set{lastSessionSetCount !== 1 ? 's' : ''} logged</span>
             )}
           </p>
         </motion.div>

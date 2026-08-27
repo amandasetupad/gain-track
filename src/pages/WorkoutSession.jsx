@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, StopCircle, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
+import { collapseLogsBySet } from '../utils/collapseLogs';
 
 export default function WorkoutSession() {
   const { id } = useParams();
@@ -23,7 +24,7 @@ export default function WorkoutSession() {
     { enabled: !!id && id !== 'new' }
   );
 
-  const { data: lastSession } = useQuery(
+  const { data: lastSession, isFetched: lastSessionFetched } = useQuery(
     ['workout', id, 'last-session'],
     () => api.get(`/workouts/${id}/last-session`),
     { enabled: !!id && !!workout?.id }
@@ -87,21 +88,9 @@ export default function WorkoutSession() {
 
   const exercises = sessionExercises;
 
-  const lastSetByExercise = React.useMemo(() => {
-    const logs = lastSession?.logs || [];
-    const byEx = {};
-    logs.forEach((log) => {
-      const exId = log.workout_exercise_id;
-      if (!byEx[exId] || (log.logged_at > (byEx[exId].logged_at || 0))) byEx[exId] = log;
-    });
-    return byEx;
-  }, [lastSession?.logs]);
-
-  // Group last session's logs by exercise, sorted by set_index, for "Last session: Set 1: X×Y kg" display
   const lastSessionSetsByExercise = React.useMemo(() => {
-    const list = lastSession?.logs || [];
     const byEx = {};
-    list.forEach((log) => {
+    collapseLogsBySet(lastSession?.logs).forEach((log) => {
       const exId = log.workout_exercise_id;
       if (!byEx[exId]) byEx[exId] = [];
       byEx[exId].push(log);
@@ -112,14 +101,22 @@ export default function WorkoutSession() {
     return byEx;
   }, [lastSession?.logs]);
 
-  // Pre-fill set rows from last session so user sees same number of sets (e.g. 3) ready to log
+  const lastSetByExercise = React.useMemo(() => {
+    const byEx = {};
+    Object.entries(lastSessionSetsByExercise).forEach(([exId, sets]) => {
+      if (sets.length) byEx[exId] = sets[sets.length - 1];
+    });
+    return byEx;
+  }, [lastSessionSetsByExercise]);
+
+  // Create one empty row per unique set from last session (not duplicate partial saves)
   React.useEffect(() => {
-    if (!sessionId || !exercises.length) return;
+    if (!sessionId || !exercises.length || !lastSessionFetched) return;
     if (initializedSessionRef.current === sessionId) return;
     initializedSessionRef.current = sessionId;
     const initial = {};
     exercises.forEach((ex) => {
-      const exLogs = lastSession?.logs ? (lastSession.logs || []).filter((l) => l.workout_exercise_id === ex.id) : [];
+      const exLogs = lastSessionSetsByExercise[ex.id] || [];
       const count = Math.max(1, exLogs.length);
       initial[ex.id] = Array.from({ length: count }, (_, i) => ({
         set_index: i,
@@ -129,7 +126,7 @@ export default function WorkoutSession() {
       }));
     });
     setLogs(initial);
-  }, [sessionId, exercises, lastSession?.logs]);
+  }, [sessionId, exercises, lastSessionFetched, lastSessionSetsByExercise]);
 
   React.useEffect(() => {
     if (workout?.id && !sessionId && !startSessionMutation.isLoading) {
@@ -336,7 +333,9 @@ export default function WorkoutSession() {
                   <span>Weight (kg)</span>
                   <span className="sr-only">Remove</span>
                 </div>
-                {(logs[ex.id] || []).map((set, setIdx) => (
+                {(logs[ex.id] || []).map((set, setIdx) => {
+                  const prevSet = lastSessionSetsByExercise[ex.id]?.[setIdx];
+                  return (
                   <div
                     key={setIdx}
                     className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 py-2.5 border-b border-slab-850 last:border-0"
@@ -345,23 +344,23 @@ export default function WorkoutSession() {
                     <input
                       type="number"
                       min="0"
-                      placeholder="0"
+                      placeholder={prevSet?.reps != null ? String(prevSet.reps) : ''}
                       aria-label="Reps"
                       value={set.reps ?? ''}
                       onChange={(e) => updateSet(ex.id, setIdx, 'reps', e.target.value)}
                       onBlur={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
-                      className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 font-mono text-sm"
+                      className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 placeholder-zinc-500 font-mono text-sm"
                     />
                     <input
                       type="number"
                       min="0"
                       step="0.5"
-                      placeholder="0"
+                      placeholder={prevSet?.weight_kg != null ? String(prevSet.weight_kg) : ''}
                       aria-label="Weight (kg)"
                       value={set.weight_kg ?? ''}
                       onChange={(e) => updateSet(ex.id, setIdx, 'weight_kg', e.target.value)}
                       onBlur={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
-                      className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 font-mono text-sm"
+                      className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 placeholder-zinc-500 font-mono text-sm"
                     />
                     <button
                       type="button"
@@ -373,7 +372,8 @@ export default function WorkoutSession() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
                 <button
                   type="button"
                   onClick={() => addSet(ex.id)}
