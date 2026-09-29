@@ -73,6 +73,12 @@ const shareLimiter = makeLimiter(120, 'Too many requests. Please try again later
 let dbReady = false;
 let dbInitError = null;
 
+const FRONTEND_URL = 'https://gain-track-two.vercel.app';
+
+app.get('/', (_, res) => {
+  res.redirect(302, FRONTEND_URL);
+});
+
 app.get('/api/health', (_, res) => {
   if (!dbReady) {
     return res.status(503).json({

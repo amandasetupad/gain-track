@@ -172,8 +172,6 @@ export default function WorkoutSession() {
     return byEx;
   }, [lastSession?.logs]);
 
-  }, [lastSessionSetsByExercise]);
-
   const lastSetsForVariant = useCallback((exerciseId, variant) => {
     const key = (variant || '').trim();
     const variants = equipmentHistory?.[exerciseId]?.variants || {};
