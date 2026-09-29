@@ -40,10 +40,55 @@ export function workoutsRouter(db) {
     `).get(req.params.id, req.userId);
     if (!session) return res.json(null);
     const logs = await db.prepare(`
-      SELECT id, workout_exercise_id, exercise_name, set_index, reps, weight_kg, logged_at
+      SELECT id, workout_exercise_id, exercise_name, set_index, reps, weight_kg, variant, logged_at
       FROM exercise_logs WHERE session_id = ? ORDER BY set_index, logged_at
     `).all(session.id);
     res.json({ ...session, logs: collapseLogsBySet(logs) });
+  });
+
+  router.get('/:id/equipment-history', async (req, res) => {
+    const workout = await db.prepare(
+      'SELECT id FROM workouts WHERE id = ? AND user_id = ?'
+    ).get(req.params.id, req.userId);
+    if (!workout) return res.status(404).json({ error: 'Workout not found' });
+    const logs = await db.prepare(`
+      SELECT el.workout_exercise_id, el.exercise_name, el.variant, el.set_index, el.reps, el.weight_kg, el.logged_at, el.session_id
+      FROM exercise_logs el
+      JOIN sessions s ON s.id = el.session_id
+      JOIN workout_exercises we ON we.id = el.workout_exercise_id
+      WHERE we.workout_id = ? AND s.user_id = ? AND s.ended_at IS NOT NULL
+      ORDER BY el.logged_at ASC
+    `).all(req.params.id, req.userId);
+    const collapsed = collapseLogsBySet(logs);
+    const grouped = {};
+    collapsed.forEach((log) => {
+      const exId = log.workout_exercise_id;
+      const variant = (log.variant || '').trim();
+      if (!grouped[exId]) grouped[exId] = {};
+      if (!grouped[exId][variant]) grouped[exId][variant] = [];
+      grouped[exId][variant].push(log);
+    });
+    const result = {};
+    Object.entries(grouped).forEach(([exId, variants]) => {
+      result[exId] = { lastVariant: '', variants: {}, options: [] };
+      let latestAt = -1;
+      let lastVar = '';
+      Object.entries(variants).forEach(([variant, rows]) => {
+        const latest = rows.reduce((best, r) => ((r.logged_at || 0) >= (best.logged_at || 0) ? r : best), rows[0]);
+        const lastRows = rows
+          .filter((r) => r.session_id === latest.session_id)
+          .sort((a, b) => (a.set_index ?? 0) - (b.set_index ?? 0));
+        result[exId].variants[variant] = lastRows;
+        const maxAt = latest.logged_at || 0;
+        if (maxAt >= latestAt) {
+          latestAt = maxAt;
+          lastVar = variant;
+        }
+      });
+      result[exId].lastVariant = lastVar;
+      result[exId].options = Object.keys(variants).filter(Boolean);
+    });
+    res.json(result);
   });
 
   router.get('/:id', async (req, res) => {

@@ -65,6 +65,7 @@ async function createSqliteDb() {
     set_index INTEGER NOT NULL,
     reps INTEGER,
     weight_kg REAL,
+    variant TEXT,
     logged_at INTEGER DEFAULT (strftime('%s', 'now')),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises(id)
@@ -87,6 +88,11 @@ async function createSqliteDb() {
   }
   try {
     internalDb.run('ALTER TABLE workout_exercises ADD COLUMN media_url TEXT');
+  } catch {
+    // ignore if column already exists
+  }
+  try {
+    internalDb.run('ALTER TABLE exercise_logs ADD COLUMN variant TEXT');
   } catch {
     // ignore if column already exists
   }
@@ -150,7 +156,9 @@ export async function initDb() {
         console.error(
           'FATAL: DATABASE_URL is set but PostgreSQL is unreachable. ' +
             'Refusing to fall back to empty SQLite (that would wipe your data on every deploy). ' +
-            'Fix DATABASE_URL in Render → gain-track → Environment, then redeploy.'
+            'Render → PostgreSQL: confirm the database exists and is Available. ' +
+            'Then Render → gain-track → Environment → set DATABASE_URL to a fresh Internal or External Database URL → Redeploy. ' +
+            'MongoDB Atlas is not used by GainTrack.'
         );
       }
       throw err;

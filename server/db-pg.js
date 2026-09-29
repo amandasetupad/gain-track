@@ -50,6 +50,7 @@ const SCHEMA = `
     set_index INTEGER NOT NULL,
     reps INTEGER,
     weight_kg REAL,
+    variant TEXT,
     logged_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW())::BIGINT),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises(id)
@@ -62,10 +63,32 @@ const SCHEMA = `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_workouts_slug ON workouts(slug);
   ALTER TABLE workouts ADD COLUMN IF NOT EXISTS order_index INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS media_url TEXT;
+  ALTER TABLE exercise_logs ADD COLUMN IF NOT EXISTS variant TEXT;
 `;
 
-function pgPoolConfig() {
-  const connectionString = process.env.DATABASE_URL;
+function sanitizeDatabaseUrl(raw) {
+  return String(raw || '').trim().replace(/^['"]+|['"]+$/g, '');
+}
+
+function hostnameOf(connectionString) {
+  try {
+    return new URL(connectionString).hostname;
+  } catch {
+    return '';
+  }
+}
+
+function withHostname(connectionString, hostname) {
+  const u = new URL(connectionString);
+  u.hostname = hostname;
+  return u.toString();
+}
+
+function isRenderInternalHost(hostname) {
+  return /^dpg-[a-z0-9]+-a$/i.test(hostname || '');
+}
+
+function pgPoolConfig(connectionString) {
   const config = {
     connectionString,
     connectionTimeoutMillis: 15000,
@@ -82,10 +105,70 @@ function pgPoolConfig() {
   return config;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function tryPool(connectionString) {
+  const pool = new Pool(pgPoolConfig(connectionString));
+  try {
+    await pool.query('SELECT 1');
+    return pool;
+  } catch (err) {
+    await pool.end().catch(() => {});
+    throw err;
+  }
+}
+
+function candidateUrls(rawUrl) {
+  const url = sanitizeDatabaseUrl(rawUrl);
+  const urls = [url];
+  const host = hostnameOf(url);
+  if (isRenderInternalHost(host)) {
+    const region = (process.env.RENDER_REGION || 'oregon').toLowerCase();
+    const external = `${host}.${region}-postgres.render.com`;
+    urls.push(withHostname(url, external));
+  }
+  return [...new Set(urls)];
+}
+
+async function connectWithRetry(rawUrl) {
+  const urls = candidateUrls(rawUrl);
+  let lastErr;
+  for (const connectionString of urls) {
+    const host = hostnameOf(connectionString) || '(unknown host)';
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        if (attempt > 1 || urls.indexOf(connectionString) > 0) {
+          console.log(`Connecting to PostgreSQL at ${host} (attempt ${attempt})`);
+        }
+        return await tryPool(connectionString);
+      } catch (err) {
+        lastErr = err;
+        const msg = String(err.message || '');
+        const retryable =
+          err.code === 'ENOTFOUND' ||
+          err.code === 'ECONNREFUSED' ||
+          err.code === 'ETIMEDOUT' ||
+          /ENOTFOUND|ECONNREFUSED|ETIMEDOUT/.test(msg);
+        if (!retryable || attempt === 3) break;
+        await sleep(1500 * attempt);
+      }
+    }
+  }
+  const host = hostnameOf(sanitizeDatabaseUrl(rawUrl)) || '(unparseable DATABASE_URL)';
+  const wrapped = new Error(
+    `Could not reach PostgreSQL host "${host}". ` +
+      'On Render: open the PostgreSQL database → confirm it is Available → copy Internal Database URL ' +
+      '(or External Database URL if Internal does not resolve) → paste into the web service Environment as DATABASE_URL → Redeploy. ' +
+      `Original error: ${lastErr?.message || lastErr}`
+  );
+  wrapped.cause = lastErr;
+  throw wrapped;
+}
+
 export async function createPgDb() {
-  const pool = new Pool(pgPoolConfig());
-  // Verify connection before running migrations.
-  await pool.query('SELECT 1');
+  const pool = await connectWithRetry(process.env.DATABASE_URL);
   const statements = SCHEMA.split(';').map((s) => s.trim()).filter(Boolean);
   for (const sql of statements) {
     try {

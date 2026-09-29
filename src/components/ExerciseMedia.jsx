@@ -52,8 +52,9 @@ export default function ExerciseMedia({ url, size = 'md', alt }) {
       >
         <img
           src={safe}
-          alt={alt || ''}
+          alt={alt || 'Exercise demonstration'}
           loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
           onError={() => setImageFailed(true)}
           className={`w-full rounded-lg border border-slab-850 bg-slab-850/50 object-contain ${

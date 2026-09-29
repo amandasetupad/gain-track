@@ -1,0 +1,13 @@
+# Public marketing/auth/legal pages and shareable workout links may be indexed.
+# Authenticated app surfaces and the API should not be crawled.
+User-agent: *
+Allow: /login
+Allow: /register
+Allow: /privacy
+Allow: /terms
+Allow: /share/
+Disallow: /workout
+Disallow: /history
+Disallow: /api/
+
+Sitemap: https://gain-track-two.vercel.app/sitemap.xml

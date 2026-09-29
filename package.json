@@ -15,19 +15,20 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "sql.js": "^1.11.0",
     "cors": "^2.8.5",
     "express": "^4.21.1",
+    "express-rate-limit": "^8.7.0",
+    "framer-motion": "^11.11.17",
     "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.460.0",
     "nanoid": "^5.0.9",
+    "pg": "^8.13.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-query": "^3.39.3",
     "react-router-dom": "^6.28.0",
     "recharts": "^2.13.3",
-    "framer-motion": "^11.11.17",
-    "lucide-react": "^0.460.0",
-    "pg": "^8.13.0"
+    "sql.js": "^1.11.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",

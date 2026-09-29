@@ -122,7 +122,7 @@ export default function History() {
         <TrendingUp className="w-6 h-6 text-gain-500" />
         <div>
           <h1 className="text-2xl font-bold text-zinc-100 font-mono">Progress</h1>
-          <p className="text-zinc-500 text-sm">Strength over time</p>
+          <p className="text-zinc-400 text-sm">Strength over time</p>
         </div>
       </motion.div>
 
@@ -136,14 +136,14 @@ export default function History() {
           <div className="flex items-baseline justify-between gap-2">
             <div>
               <h2 className="font-semibold text-zinc-200 font-mono">Workout calendar</h2>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-400">
                 Days with completed workouts this month are highlighted.
               </p>
             </div>
-            <span className="text-xs font-mono text-zinc-500">{calendarInfo.monthLabel}</span>
+            <span className="text-xs font-mono text-zinc-400">{calendarInfo.monthLabel}</span>
           </div>
 
-          <div className="mt-4 grid grid-cols-7 gap-1 text-[11px] font-mono text-zinc-500">
+          <div className="mt-4 grid grid-cols-7 gap-1 text-[11px] font-mono text-zinc-400">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
               <div key={label} className="text-center">{label}</div>
             ))}
@@ -192,14 +192,14 @@ export default function History() {
         </select>
 
         {!selectedExercise && (
-          <div className="mt-8 flex flex-col items-center justify-center py-12 text-zinc-500">
+          <div className="mt-8 flex flex-col items-center justify-center py-12 text-zinc-400">
             <Dumbbell className="w-12 h-12 mb-4 opacity-50" />
             <p>Pick an exercise to view progress</p>
           </div>
         )}
 
         {selectedExercise && isLoading && (
-          <div className="mt-8 py-12 text-center text-zinc-500">Loading history...</div>
+          <div className="mt-8 py-12 text-center text-zinc-400">Loading history...</div>
         )}
 
         {selectedExercise && !isLoading && collapsedHistory.length > 0 && (
@@ -208,15 +208,16 @@ export default function History() {
               <h3 className="text-sm font-medium text-zinc-400 mb-1 font-mono">
                 Logged sets for <span className="text-zinc-200">{selectedExercise}</span>
               </h3>
-              <p className="text-xs text-zinc-500 mb-3">
+              <p className="text-xs text-zinc-400 mb-3">
                 Every row is one set you logged over time, newest first.
               </p>
               <div className="overflow-x-auto rounded-lg border border-slab-850">
                 <table className="w-full text-sm font-mono">
                   <thead>
-                    <tr className="bg-slab-850/80 text-zinc-500 text-left">
+                    <tr className="bg-slab-850/80 text-zinc-400 text-left">
                       <th className="px-3 py-2 font-medium">Date</th>
                       <th className="px-3 py-2 font-medium">Set</th>
+                      <th className="px-3 py-2 font-medium">Equipment</th>
                       <th className="px-3 py-2 font-medium">Reps</th>
                       <th className="px-3 py-2 font-medium">Weight (kg)</th>
                     </tr>
@@ -228,6 +229,7 @@ export default function History() {
                         <tr key={log.id || i} className="border-t border-slab-850 text-zinc-300">
                           <td className="px-3 py-2">{formatDate(log.started_at)}</td>
                           <td className="px-3 py-2">Set {(log.set_index ?? 0) + 1}</td>
+                          <td className="px-3 py-2">{log.variant ? log.variant : '—'}</td>
                           <td className="px-3 py-2">{log.reps != null ? log.reps : '—'}</td>
                           <td className="px-3 py-2">{log.weight_kg != null ? log.weight_kg : '—'}</td>
                         </tr>
@@ -241,8 +243,8 @@ export default function History() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#71717a', fontSize: 12 }} />
-                  <YAxis stroke="#71717a" tick={{ fill: '#71717a', fontSize: 12 }} />
+                  <XAxis dataKey="date" stroke="#a1a1aa" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
+                  <YAxis stroke="#a1a1aa" tick={{ fill: '#a1a1aa', fontSize: 12 }} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: '#1a1d24',
@@ -275,7 +277,7 @@ export default function History() {
         )}
 
         {selectedExercise && !isLoading && chartData.length === 0 && historyByExercise.length === 0 && (
-          <div className="mt-8 py-12 text-center text-zinc-500">
+          <div className="mt-8 py-12 text-center text-zinc-400">
             No logged sets for <strong className="text-zinc-400">{selectedExercise}</strong> yet. Log reps and weight during a session, then come back here.
           </div>
         )}
@@ -296,7 +298,7 @@ export default function History() {
                 className="flex flex-wrap items-center justify-between gap-x-2 py-2 border-b border-slab-850 last:border-0 text-sm"
               >
                 <span className="text-zinc-300">{s.workout_name}</span>
-                <span className="text-zinc-500 font-mono">
+                <span className="text-zinc-400 font-mono">
                   {s.ended_at ? `Ended ${formatDate(s.ended_at)}` : `Started ${formatDate(s.started_at)}`}
                 </span>
               </li>

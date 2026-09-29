@@ -15,6 +15,53 @@ function setHasLoggedData(set) {
   );
 }
 
+/** "Hip thrust – 4 × 6-8" → 4 planned sets */
+function plannedSetCountFromName(name) {
+  const m = String(name || '').match(/(\d+)\s*[×xX]\s*\d/);
+  if (!m) return 0;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 && n <= 20 ? n : 0;
+}
+
+const EQUIPMENT_PRESETS = ['Machine', 'Standing machine', 'Barbell', 'Bar + plates', 'Dumbbells'];
+
+function EquipmentPicker({ value, options = [], onChange }) {
+  const chips = [...new Set([...EQUIPMENT_PRESETS, ...options])];
+  return (
+    <div className="mt-3">
+      <p className="text-[11px] uppercase tracking-wider text-zinc-400 font-mono mb-1.5">
+        How are you doing this?
+      </p>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {chips.map((chip) => {
+          const selected = value === chip;
+          return (
+            <button
+              type="button"
+              key={chip}
+              onClick={() => onChange(selected ? '' : chip)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-mono border transition-colors ${
+                selected
+                  ? 'bg-gain-500/15 border-gain-500/50 text-gain-400'
+                  : 'bg-slab-850 border-slab-850 text-zinc-300 hover:border-gain-500/40'
+              }`}
+            >
+              {chip}
+            </button>
+          );
+        })}
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Or type it (e.g. one dumbbell, smith machine)"
+        className="w-full px-3 py-1.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-400 font-mono text-xs"
+      />
+    </div>
+  );
+}
+
 export default function WorkoutSession() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -26,8 +73,14 @@ export default function WorkoutSession() {
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [revealedCount, setRevealedCount] = useState(1);
+  const [nextArmed, setNextArmed] = useState(false);
+  const [equipment, setEquipment] = useState({}); // exerciseId -> string
   const initializedSessionRef = React.useRef(null);
   const prevRevealedRef = React.useRef(1);
+  const nextArmTimerRef = React.useRef(null);
+  const blockNextUntilRef = React.useRef(0);
+  const equipmentRef = React.useRef(equipment);
+  equipmentRef.current = equipment;
 
   const { data: workout, isLoading } = useQuery(
     ['workout', id],
@@ -38,6 +91,12 @@ export default function WorkoutSession() {
   const { data: lastSession, isFetched: lastSessionFetched } = useQuery(
     ['workout', id, 'last-session'],
     () => api.get(`/workouts/${id}/last-session`),
+    { enabled: !!id && !!workout?.id }
+  );
+
+  const { data: equipmentHistory } = useQuery(
+    ['workout', id, 'equipment-history'],
+    () => api.get(`/workouts/${id}/equipment-history`),
     { enabled: !!id && !!workout?.id }
   );
 
@@ -57,6 +116,7 @@ export default function WorkoutSession() {
         queryClient.invalidateQueries('history-exercise-names');
         queryClient.invalidateQueries('sessions');
         queryClient.invalidateQueries(['workout', id, 'last-session']);
+        queryClient.invalidateQueries(['workout', id, 'equipment-history']);
         navigate(`/workout/${id}`, {
           state: {
             message: 'Session ended. Your sets were saved. View reps & weight in Progress.',
@@ -112,13 +172,29 @@ export default function WorkoutSession() {
     return byEx;
   }, [lastSession?.logs]);
 
-  const lastSetByExercise = React.useMemo(() => {
-    const byEx = {};
-    Object.entries(lastSessionSetsByExercise).forEach(([exId, sets]) => {
-      if (sets.length) byEx[exId] = sets[sets.length - 1];
-    });
-    return byEx;
   }, [lastSessionSetsByExercise]);
+
+  const lastSetsForVariant = useCallback((exerciseId, variant) => {
+    const key = (variant || '').trim();
+    const variants = equipmentHistory?.[exerciseId]?.variants || {};
+    if (key) return variants[key] || [];
+    return lastSessionSetsByExercise[exerciseId] || [];
+  }, [equipmentHistory, lastSessionSetsByExercise]);
+
+  React.useEffect(() => {
+    if (!equipmentHistory || !exercises.length) return;
+    setEquipment((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      exercises.forEach((ex) => {
+        if (next[ex.id] === undefined) {
+          next[ex.id] = equipmentHistory[ex.id]?.lastVariant || '';
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [equipmentHistory, exercises]);
 
   // Create one empty row per unique set from last session (not duplicate partial saves)
   React.useEffect(() => {
@@ -126,11 +202,12 @@ export default function WorkoutSession() {
     if (initializedSessionRef.current === sessionId) return;
     initializedSessionRef.current = sessionId;
     setRevealedCount(1);
+    setNextArmed(false);
     prevRevealedRef.current = 1;
     const initial = {};
     exercises.forEach((ex) => {
       const exLogs = lastSessionSetsByExercise[ex.id] || [];
-      const count = Math.max(1, exLogs.length);
+      const count = Math.max(1, exLogs.length, plannedSetCountFromName(ex.name));
       initial[ex.id] = Array.from({ length: count }, (_, i) => ({
         set_index: i,
         reps: '',
@@ -141,22 +218,22 @@ export default function WorkoutSession() {
     setLogs(initial);
   }, [sessionId, exercises, lastSessionFetched, lastSessionSetsByExercise]);
 
-  const isExerciseComplete = React.useCallback((exerciseId) => {
-    const list = logs[exerciseId] || [];
-    return list.length > 0 && list.every(setHasLoggedData);
-  }, [logs]);
+  const postponeNextArm = useCallback(() => {
+    blockNextUntilRef.current = Date.now() + 700;
+    setNextArmed(false);
+    if (nextArmTimerRef.current) clearTimeout(nextArmTimerRef.current);
+    nextArmTimerRef.current = setTimeout(() => setNextArmed(true), 700);
+  }, []);
 
   const goToNextExercise = useCallback(() => {
+    if (Date.now() < blockNextUntilRef.current) return;
+    setNextArmed(false);
     setRevealedCount((count) => Math.min(count + 1, exercises.length));
   }, [exercises.length]);
 
-  React.useEffect(() => {
-    const current = exercises[revealedCount - 1];
-    if (!current || revealedCount >= exercises.length) return;
-    if (isExerciseComplete(current.id)) {
-      setRevealedCount((count) => Math.min(count + 1, exercises.length));
-    }
-  }, [exercises, revealedCount, isExerciseComplete]);
+  React.useEffect(() => () => {
+    if (nextArmTimerRef.current) clearTimeout(nextArmTimerRef.current);
+  }, []);
 
   React.useEffect(() => {
     if (revealedCount > prevRevealedRef.current) {
@@ -218,26 +295,15 @@ export default function WorkoutSession() {
     addExerciseMutation.mutate(payload);
   }, [newExerciseName, workout, exercises, addExerciseMutation]);
 
-  const addSet = useCallback(
-    (exerciseId) => {
-      const list = logs[exerciseId] || [];
-      const setIndex = list.length;
-      setLogs((prev) => ({
-        ...prev,
-        [exerciseId]: [...list, { set_index: setIndex, reps: '', weight_kg: '', saved: false }],
-      }));
-    },
-    [logs]
-  );
-
   const updateSet = useCallback((exerciseId, setIndex, field, value) => {
+    postponeNextArm();
     setLogs((prev) => {
       const list = [...(prev[exerciseId] || [])];
       if (!list[setIndex]) list[setIndex] = { set_index: setIndex, reps: '', weight_kg: '', saved: false };
       list[setIndex] = { ...list[setIndex], [field]: value };
       return { ...prev, [exerciseId]: list };
     });
-  }, []);
+  }, [postponeNextArm]);
 
   const saveSet = useCallback(
     (exerciseId, exerciseName, setIndex, reps, weight_kg) => {
@@ -250,10 +316,64 @@ export default function WorkoutSession() {
         set_index: setIndex,
         reps: reps !== '' && reps != null ? parseInt(reps, 10) : null,
         weight_kg: weight_kg !== '' && weight_kg != null ? parseFloat(weight_kg) : null,
+        variant: (equipmentRef.current[exerciseId] || '').trim() || null,
       });
     },
     [sessionId, logMutation]
   );
+
+  const handleEquipmentChange = useCallback((exerciseId, exerciseName, value) => {
+    equipmentRef.current = { ...equipmentRef.current, [exerciseId]: value };
+    setEquipment((prev) => ({ ...prev, [exerciseId]: value }));
+    const list = logs[exerciseId] || [];
+    list.forEach((set, setIdx) => {
+      if (setHasLoggedData(set)) {
+        saveSet(exerciseId, exerciseName, setIdx, set.reps, set.weight_kg);
+      }
+    });
+  }, [logs, saveSet]);
+
+  const addSet = useCallback(
+    (exerciseId, exerciseName) => {
+      const list = logs[exerciseId] || [];
+      const previous = list[list.length - 1];
+      const setIndex = list.length;
+      const next = {
+        set_index: setIndex,
+        reps: previous?.reps ?? '',
+        weight_kg: previous?.weight_kg ?? '',
+        saved: false,
+      };
+      setLogs((prev) => ({
+        ...prev,
+        [exerciseId]: [...list, next],
+      }));
+      if (setHasLoggedData(next)) {
+        saveSet(exerciseId, exerciseName, setIndex, next.reps, next.weight_kg);
+      }
+    },
+    [logs, saveSet]
+  );
+
+  const fillSetFromPrevious = useCallback((exerciseId, exerciseName, setIndex) => {
+    if (setIndex <= 0) return;
+    const list = logs[exerciseId] || [];
+    const current = list[setIndex];
+    const previous = list[setIndex - 1];
+    if (!current || !previous) return;
+    if (setHasLoggedData(current) || !setHasLoggedData(previous)) return;
+    setLogs((prev) => {
+      const rows = [...(prev[exerciseId] || [])];
+      if (!rows[setIndex]) return prev;
+      rows[setIndex] = {
+        ...rows[setIndex],
+        reps: previous.reps ?? '',
+        weight_kg: previous.weight_kg ?? '',
+      };
+      return { ...prev, [exerciseId]: rows };
+    });
+    saveSet(exerciseId, exerciseName, setIndex, previous.reps, previous.weight_kg);
+  }, [logs, saveSet]);
 
   const deleteLogMutation = useMutation(
     (logId) => api.delete(`/sessions/${sessionId}/logs/${logId}`),
@@ -290,11 +410,12 @@ export default function WorkoutSession() {
             set_index: setIdx,
             reps: set.reps !== '' && set.reps != null ? parseInt(set.reps, 10) : null,
             weight_kg: set.weight_kg !== '' && set.weight_kg != null ? parseFloat(set.weight_kg) : null,
+            variant: (equipment[ex.id] || '').trim() || null,
           }).catch(() => {});
         }
       }
     }
-  }, [sessionId, exercises, logs]);
+  }, [sessionId, exercises, logs, equipment]);
 
   const hasAnyLoggedData = React.useMemo(() => {
     return exercises.some((ex) => (logs[ex.id] || []).some(setHasLoggedData));
@@ -325,6 +446,7 @@ export default function WorkoutSession() {
         <Link
           to={`/workout/${id}`}
           className="flex items-center gap-2 text-zinc-400 hover:text-zinc-100"
+          aria-label="Back to workout"
         >
           <ArrowLeft className="w-5 h-5" />
           <span className="font-mono text-sm">Back</span>
@@ -332,7 +454,7 @@ export default function WorkoutSession() {
         <h1 className="text-xl font-bold text-zinc-100 font-mono truncate">
           {workout.name} — Session
         </h1>
-        <span className="w-24 text-right text-xs text-zinc-500 font-mono" aria-hidden={exercises.length === 0}>
+        <span className="w-24 text-right text-xs text-zinc-400 font-mono" aria-hidden={exercises.length === 0}>
           {exercises.length > 0 ? `${Math.min(revealedCount, exercises.length)} / ${exercises.length}` : ''}
         </span>
       </div>
@@ -352,9 +474,11 @@ export default function WorkoutSession() {
           {exercises.slice(0, Math.max(1, Math.min(revealedCount, exercises.length || 1))).map((ex, idx) => {
             const isCurrent = idx === revealedCount - 1;
             const isPast = idx < revealedCount - 1;
-            const isDone = isExerciseComplete(ex.id);
             const hasLogged = (logs[ex.id] || []).some(setHasLoggedData);
             const canGoNext = isCurrent && idx < exercises.length - 1;
+            const variant = equipment[ex.id] || '';
+            const variantSets = lastSetsForVariant(ex.id, variant);
+            const lastVariantSet = variantSets[variantSets.length - 1];
             return (
             <motion.section
               key={ex.id}
@@ -371,25 +495,25 @@ export default function WorkoutSession() {
               <div className="mb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-mono mb-1">
+                    <p className="text-[11px] uppercase tracking-wider text-zinc-400 font-mono mb-1">
                       Exercise {idx + 1}
                     </p>
                     <h2 className="font-semibold text-zinc-100 font-mono">{ex.name}</h2>
-                    {lastSetByExercise[ex.id] && (
-                      <p className="text-sm text-zinc-500 font-mono mt-0.5">
-                        Last: {[lastSetByExercise[ex.id].reps != null && `${lastSetByExercise[ex.id].reps} reps`, lastSetByExercise[ex.id].weight_kg != null && `${lastSetByExercise[ex.id].weight_kg} kg`].filter(Boolean).join(' × ')}
+                    {lastVariantSet && (
+                      <p className="text-sm text-zinc-400 font-mono mt-0.5">
+                        Last{variant ? ` (${variant})` : ''}: {[lastVariantSet.reps != null && `${lastVariantSet.reps} reps`, lastVariantSet.weight_kg != null && `${lastVariantSet.weight_kg} kg`].filter(Boolean).join(' × ')}
                       </p>
                     )}
-                    {lastSessionSetsByExercise[ex.id]?.length > 0 && (
-                      <p className="text-xs text-zinc-500 font-mono mt-1">
-                        Last session: {lastSessionSetsByExercise[ex.id].map((log, i) => {
+                    {variantSets.length > 0 && (
+                      <p className="text-xs text-zinc-400 font-mono mt-1">
+                        Last {variant || 'session'}: {variantSets.map((log, i) => {
                           const parts = [log.reps != null && `${log.reps}`, log.weight_kg != null && `${log.weight_kg} kg`].filter(Boolean);
                           return `Set ${i + 1}: ${parts.length ? parts.join('×') : '—'}`;
                         }).join(', ')}
                       </p>
                     )}
                   </div>
-                  {(isPast || isDone) && (
+                  {isPast && (
                     <span className="inline-flex items-center gap-1 text-gain-500 text-xs font-mono flex-shrink-0 mt-1">
                       <Check className="w-4 h-4" />
                       Done
@@ -397,23 +521,28 @@ export default function WorkoutSession() {
                   )}
                 </div>
                 <ExerciseMedia url={ex.media_url} size="md" alt={ex.name} />
+                <EquipmentPicker
+                  value={variant}
+                  options={equipmentHistory?.[ex.id]?.options || []}
+                  onChange={(value) => handleEquipmentChange(ex.id, ex.name, value)}
+                />
               </div>
               <div className="space-y-0">
                 {/* Header and rows share the same grid so columns line up */}
-                <div className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 text-zinc-500 text-xs font-mono uppercase tracking-wider pb-2 border-b border-slab-850">
+                <div className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 text-zinc-400 text-xs font-mono uppercase tracking-wider pb-2 border-b border-slab-850">
                   <span>Set</span>
                   <span>Reps</span>
                   <span>Weight (kg)</span>
                   <span className="sr-only">Remove</span>
                 </div>
                 {(logs[ex.id] || []).map((set, setIdx) => {
-                  const prevSet = lastSessionSetsByExercise[ex.id]?.[setIdx];
+                  const prevSet = variantSets[setIdx];
                   return (
                   <div
                     key={setIdx}
                     className="grid grid-cols-[4.5rem_5rem_5.5rem_2.5rem] sm:grid-cols-[5rem_6rem_6rem_3rem] items-center gap-x-3 sm:gap-x-4 py-2.5 border-b border-slab-850 last:border-0"
                   >
-                    <span className="text-zinc-500 text-sm font-mono">Set {setIdx + 1}</span>
+                    <span className="text-zinc-400 text-sm font-mono">Set {setIdx + 1}</span>
                     <input
                       type="number"
                       min="0"
@@ -421,8 +550,12 @@ export default function WorkoutSession() {
                       aria-label="Reps"
                       value={set.reps ?? ''}
                       onChange={(e) => updateSet(ex.id, setIdx, 'reps', e.target.value)}
+                      onFocus={() => fillSetFromPrevious(ex.id, ex.name, setIdx)}
                       onBlur={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
-                      className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 placeholder-zinc-500 font-mono text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.preventDefault();
+                      }}
+                      className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 placeholder-zinc-400 font-mono text-sm"
                     />
                     <input
                       type="number"
@@ -432,13 +565,17 @@ export default function WorkoutSession() {
                       aria-label="Weight (kg)"
                       value={set.weight_kg ?? ''}
                       onChange={(e) => updateSet(ex.id, setIdx, 'weight_kg', e.target.value)}
+                      onFocus={() => fillSetFromPrevious(ex.id, ex.name, setIdx)}
                       onBlur={() => saveSet(ex.id, ex.name, setIdx, set.reps, set.weight_kg)}
-                      className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 placeholder-zinc-500 font-mono text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.preventDefault();
+                      }}
+                      className="w-full min-w-0 px-2.5 py-1.5 sm:px-3 bg-slab-850 border border-slab-850 rounded text-zinc-100 placeholder-zinc-400 font-mono text-sm"
                     />
                     <button
                       type="button"
                       onClick={() => removeSet(ex.id, setIdx, set.logId)}
-                      className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-slab-850 justify-self-start"
+                      className="p-1.5 rounded text-zinc-400 hover:text-red-400 hover:bg-slab-850 justify-self-start"
                       title="Remove set"
                       aria-label="Remove set"
                     >
@@ -449,28 +586,22 @@ export default function WorkoutSession() {
                 })}
                 <button
                   type="button"
-                  onClick={() => addSet(ex.id)}
+                  onClick={() => addSet(ex.id, ex.name)}
                   className="flex items-center gap-2 text-sm text-gain-500 hover:text-gain-400 mt-2"
                 >
                   <Plus className="w-4 h-4" />
                   Add set
                 </button>
               </div>
-              {canGoNext && (
+              {canGoNext && nextArmed && hasLogged && (
                 <button
                   type="button"
                   onClick={goToNextExercise}
-                  disabled={!hasLogged}
-                  className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gain-500 hover:bg-gain-600 text-slab-950 font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gain-500 hover:bg-gain-600 text-slab-950 font-semibold rounded-xl"
                 >
                   Next exercise
                   <ChevronRight className="w-4 h-4" />
                 </button>
-              )}
-              {canGoNext && !hasLogged && (
-                <p className="mt-2 text-center text-xs text-zinc-500 font-mono">
-                  Log a set to continue, or add more sets first.
-                </p>
               )}
             </motion.section>
             );
@@ -481,7 +612,7 @@ export default function WorkoutSession() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg bg-slab-900 border border-slab-850 px-4 py-3">
         <div>
           <p className="text-sm text-zinc-300 font-mono">Need to add an exercise mid-session?</p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-400">
             New exercises will be saved to this workout so they&apos;re ready next time.
           </p>
         </div>
@@ -492,7 +623,7 @@ export default function WorkoutSession() {
               value={newExerciseName}
               onChange={(e) => setNewExerciseName(e.target.value)}
               placeholder="New exercise name"
-              className="flex-1 px-3 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 font-mono text-sm"
+              className="flex-1 px-3 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-400 font-mono text-sm"
             />
           )}
           <div className="flex items-center gap-2 justify-end">
@@ -534,7 +665,7 @@ export default function WorkoutSession() {
 
       <div className="pt-6 border-t border-slab-850 flex flex-col items-center sm:items-end gap-2 pb-8">
         {!hasAnyLoggedData && (
-          <p className="text-zinc-500 text-sm font-mono">Log at least one set (reps or weight) to end the session.</p>
+          <p className="text-zinc-400 text-sm font-mono">Log at least one set (reps or weight) to end the session.</p>
         )}
         <button
           onClick={() => handleEndSession()}

@@ -33,7 +33,7 @@ export function sessionsRouter(db) {
   router.get('/history/exercise/:workoutExerciseId', async (req, res) => {
     const { workoutExerciseId } = req.params;
     const logs = await db.prepare(`
-      SELECT el.reps, el.weight_kg, el.set_index, el.logged_at, s.started_at
+      SELECT el.reps, el.weight_kg, el.set_index, el.variant, el.logged_at, s.started_at
       FROM exercise_logs el
       JOIN sessions s ON s.id = el.session_id
       WHERE el.workout_exercise_id = ? AND s.user_id = ?
@@ -57,7 +57,7 @@ export function sessionsRouter(db) {
     const exerciseName = req.query.exerciseName;
     if (!exerciseName?.trim()) return res.status(400).json({ error: 'exerciseName query required' });
     const logs = await db.prepare(`
-      SELECT el.id, el.reps, el.weight_kg, el.set_index, el.logged_at, el.exercise_name, s.started_at, s.id as session_id
+      SELECT el.id, el.reps, el.weight_kg, el.set_index, el.variant, el.logged_at, el.exercise_name, s.started_at, s.id as session_id
       FROM exercise_logs el
       JOIN sessions s ON s.id = el.session_id
       WHERE s.user_id = ? AND el.exercise_name = ?
@@ -75,7 +75,7 @@ export function sessionsRouter(db) {
     `).get(req.params.id, req.userId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     const logs = await db.prepare(`
-      SELECT id, workout_exercise_id, exercise_name, set_index, reps, weight_kg, logged_at
+      SELECT id, workout_exercise_id, exercise_name, set_index, reps, weight_kg, variant, logged_at
       FROM exercise_logs WHERE session_id = ? ORDER BY set_index, logged_at
     `).all(req.params.id);
     res.json({ ...session, logs: collapseLogsBySet(logs) });
@@ -93,10 +93,11 @@ export function sessionsRouter(db) {
   router.post('/:id/logs', async (req, res) => {
     const session = await db.prepare('SELECT id FROM sessions WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
-    const { workout_exercise_id, exercise_name, set_index, reps, weight_kg } = req.body;
+    const { workout_exercise_id, exercise_name, set_index, reps, weight_kg, variant } = req.body;
     if (workout_exercise_id == null || exercise_name == null || set_index == null) {
       return res.status(400).json({ error: 'workout_exercise_id, exercise_name, set_index required' });
     }
+    const variantValue = typeof variant === 'string' && variant.trim() ? variant.trim().slice(0, 80) : null;
     const existingRows = await db.prepare(`
       SELECT id, reps, weight_kg, logged_at
       FROM exercise_logs
@@ -113,8 +114,8 @@ export function sessionsRouter(db) {
         if (nextWeight == null && row.weight_kg != null) nextWeight = row.weight_kg;
       }
       await db.prepare(`
-        UPDATE exercise_logs SET reps = ?, weight_kg = ?, exercise_name = ? WHERE id = ?
-      `).run(nextReps, nextWeight, exercise_name, keep.id);
+        UPDATE exercise_logs SET reps = ?, weight_kg = ?, exercise_name = ?, variant = ? WHERE id = ?
+      `).run(nextReps, nextWeight, exercise_name, variantValue, keep.id);
       for (const row of existingRows.slice(1)) {
         await db.prepare('DELETE FROM exercise_logs WHERE id = ?').run(row.id);
       }
@@ -124,9 +125,9 @@ export function sessionsRouter(db) {
 
     const id = nanoid();
     await db.prepare(`
-      INSERT INTO exercise_logs (id, session_id, workout_exercise_id, exercise_name, set_index, reps, weight_kg)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, req.params.id, workout_exercise_id, exercise_name, set_index ?? null, reps ?? null, weight_kg ?? null);
+      INSERT INTO exercise_logs (id, session_id, workout_exercise_id, exercise_name, set_index, reps, weight_kg, variant)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, req.params.id, workout_exercise_id, exercise_name, set_index ?? null, reps ?? null, weight_kg ?? null, variantValue);
     const log = await db.prepare('SELECT * FROM exercise_logs WHERE id = ?').get(id);
     res.status(201).json(log);
   });

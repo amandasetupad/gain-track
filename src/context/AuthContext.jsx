@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { api, getApiBase, fetchWithTimeout } from '../api/client';
+import {
+  api,
+  getApiBase,
+  fetchWithTimeout,
+  wakeBackend,
+  AUTH_TIMEOUT_MS,
+  AUTH_RETRY_TIMEOUT_MS,
+  WAKE_TIMEOUT_MS,
+} from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -44,19 +52,35 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:logout', onLogout);
   }, []);
 
-  const authRequest = useCallback(async (path, email, password) => {
-    const res = await fetchWithTimeout(`${getApiBase()}/auth/${path}`, {
+  const postAuth = useCallback(async (path, payload, ms) => {
+    return fetchWithTimeout(`${getApiBase()}/auth/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+      body: JSON.stringify(payload),
+    }, ms);
+  }, []);
+
+  const authRequest = useCallback(async (path, email, password, extra = {}) => {
+    const payload = { email, password, ...extra };
+    let res;
+    try {
+      res = await postAuth(path, payload, AUTH_TIMEOUT_MS);
+    } catch {
+      await wakeBackend(WAKE_TIMEOUT_MS);
+      res = await postAuth(path, payload, AUTH_RETRY_TIMEOUT_MS);
+    }
+    if (res.status === 503) {
+      await wakeBackend(WAKE_TIMEOUT_MS);
+      res = await postAuth(path, payload, AUTH_RETRY_TIMEOUT_MS);
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw { status: res.status, ...data };
     const { token, ...u } = data;
+    if (!token) throw { status: 0, error: 'Cannot reach the server.' };
     localStorage.setItem('token', token);
     setUser(u);
     return u;
-  }, []);
+  }, [postAuth]);
 
   const login = useCallback(
     (email, password) => authRequest('login', email, password),
@@ -64,7 +88,7 @@ export function AuthProvider({ children }) {
   );
 
   const register = useCallback(
-    (email, password) => authRequest('register', email, password),
+    (email, password, extra = {}) => authRequest('register', email, password, extra),
     [authRequest]
   );
 

@@ -24,6 +24,12 @@ body {
   @apply outline-none ring-2 ring-gain-500 ring-offset-2 ring-offset-slab-950;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: #a1a1aa;
+  opacity: 1;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

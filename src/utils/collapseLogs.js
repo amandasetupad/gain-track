@@ -20,6 +20,9 @@ export function collapseLogsBySet(logs = []) {
       ...newer,
       reps: newer.reps != null ? newer.reps : older.reps,
       weight_kg: newer.weight_kg != null ? newer.weight_kg : older.weight_kg,
+      variant: (newer.variant != null && String(newer.variant).trim() !== '')
+        ? newer.variant
+        : older.variant,
       logged_at: Math.max(existing.logged_at || 0, log.logged_at || 0),
     });
   }

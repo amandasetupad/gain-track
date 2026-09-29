@@ -105,7 +105,7 @@ export default function Dashboard() {
       >
         <div>
           <h1 className="text-2xl font-bold text-zinc-100 font-mono">Dashboard</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">Your routines. Your gains.</p>
+          <p className="text-zinc-400 text-sm mt-0.5">Your routines. Your gains.</p>
         </div>
         <Link
           to="/workout/new"
@@ -124,7 +124,7 @@ export default function Dashboard() {
         >
           <p className="text-sm text-zinc-400 font-mono">
             Last session: <span className="text-zinc-200">{lastSession.workout_name}</span>
-            <span className="text-zinc-500"> — ended {formatSessionDate(lastSession.ended_at)}</span>
+            <span className="text-zinc-400"> — ended {formatSessionDate(lastSession.ended_at)}</span>
           </p>
         </motion.div>
       )}
@@ -141,9 +141,9 @@ export default function Dashboard() {
           animate={{ opacity: 1 }}
           className="bg-slab-900 border border-slab-850 rounded-xl p-12 text-center"
         >
-          <Dumbbell className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+          <Dumbbell className="w-12 h-12 text-zinc-400 mx-auto mb-4" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-zinc-300 mb-2">No routines yet</h2>
-          <p className="text-zinc-500 text-sm mb-6 max-w-sm mx-auto">
+          <p className="text-zinc-400 text-sm mb-6 max-w-sm mx-auto">
             Create your first workout routine—Leg Day, Push Day, or whatever fits your program.
           </p>
           <Link
@@ -178,20 +178,20 @@ export default function Dashboard() {
                     <h3 className="font-semibold text-zinc-100 group-hover:text-gain-400 transition-colors">
                       {w.name}
                     </h3>
-                    <p className="text-sm text-zinc-500 mt-0.5 font-mono">
+                    <p className="text-sm text-zinc-400 mt-0.5 font-mono">
                       {w.exercise_count ?? 0} exercises
                     </p>
-                    <p className="text-xs text-zinc-600 mt-2 font-mono leading-relaxed">
+                    <p className="text-xs text-zinc-400 mt-2 font-mono leading-relaxed">
                       {w.created_at ? (
                         <span>Created {formatCreatedDate(w.created_at)}</span>
                       ) : null}
-                      {w.created_at ? <span className="text-zinc-700"> · </span> : null}
-                      <span className={w.last_completed_at ? 'text-zinc-500' : 'text-zinc-600'}>
+                      {w.created_at ? <span className="text-zinc-400"> · </span> : null}
+                      <span className="text-zinc-400">
                         {formatLastCompleted(w.last_completed_at)}
                       </span>
                     </p>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-zinc-500 group-hover:text-gain-500 transition-colors" />
+                  <ChevronRight className="w-5 h-5 text-zinc-400 group-hover:text-gain-500 transition-colors" />
                 </div>
               </Link>
             </motion.div>

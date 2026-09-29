@@ -262,6 +262,7 @@ export default function WorkoutDetail() {
         <Link
           to="/"
           onClick={handleBackClick}
+          aria-label="Back to dashboard"
           className="p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-slab-850"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -270,7 +271,7 @@ export default function WorkoutDetail() {
           <h1 className="text-xl font-bold text-zinc-100 font-mono truncate">
             {isNew(id) ? 'New workout' : (workout?.name || name) || 'Workout'}
           </h1>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-zinc-400">
             {!isNew(id) && !isEditing
               ? 'Start a session or share this workout'
               : 'Build your workout exercise list'}
@@ -294,7 +295,7 @@ export default function WorkoutDetail() {
           <p className="text-sm text-zinc-400 font-mono">
             Last session ended <span className="text-zinc-200">{formatSessionDate(lastSession.ended_at)}</span>
             {lastSessionSetCount > 0 && (
-              <span className="text-zinc-500"> · {lastSessionSetCount} set{lastSessionSetCount !== 1 ? 's' : ''} logged</span>
+              <span className="text-zinc-400"> · {lastSessionSetCount} set{lastSessionSetCount !== 1 ? 's' : ''} logged</span>
             )}
           </p>
         </motion.div>
@@ -318,7 +319,10 @@ export default function WorkoutDetail() {
                 const lastByEx = lastSetPerExercise(lastSession?.logs);
                 const last = ex.id ? lastByEx[ex.id] : null;
                 const lastStr = last != null
-                  ? [last.reps != null && `${last.reps} reps`, last.weight_kg != null && `${last.weight_kg} kg`].filter(Boolean).join(' × ')
+                  ? [
+                      [last.reps != null && `${last.reps} reps`, last.weight_kg != null && `${last.weight_kg} kg`].filter(Boolean).join(' × '),
+                      last.variant,
+                    ].filter(Boolean).join(' · ')
                   : null;
                 return (
                   <li
@@ -328,7 +332,7 @@ export default function WorkoutDetail() {
                     <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3">
                       <span className="font-mono text-zinc-200">{ex.name || `Exercise ${index + 1}`}</span>
                       {lastStr && (
-                        <span className="text-xs font-mono text-zinc-500">Last: {lastStr}</span>
+                        <span className="text-xs font-mono text-zinc-400">Last: {lastStr}</span>
                       )}
                     </div>
                     <ExerciseMedia url={ex.media_url} size="sm" alt={ex.name} />
@@ -383,22 +387,12 @@ export default function WorkoutDetail() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Leg Day, Push Day"
-              className="w-full px-4 py-2.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 focus:ring-1 focus:ring-gain-500 font-mono"
+              className="w-full px-4 py-2.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-400 focus:border-gain-500 focus:ring-1 focus:ring-gain-500 font-mono"
             />
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-zinc-400">Exercises</label>
-              <button
-                type="button"
-                onClick={addExercise}
-                className="flex items-center gap-1.5 text-sm text-gain-500 hover:text-gain-400"
-              >
-                <Plus className="w-4 h-4" />
-                Add
-              </button>
-            </div>
+            <label className="block text-sm font-medium text-zinc-400 mb-2">Exercises</label>
             <div className="space-y-2">
               {(() => {
                 const lastByEx = lastSetPerExercise(lastSession?.logs);
@@ -420,25 +414,25 @@ export default function WorkoutDetail() {
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                             <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <GripVertical className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                              <GripVertical className="w-4 h-4 text-zinc-400 flex-shrink-0" />
                               <input
                                 type="text"
                                 value={ex.name}
                                 onChange={(e) => updateExercise(index, 'name', e.target.value)}
                                 placeholder={`Exercise ${index + 1}`}
-                                className="flex-1 min-w-0 px-4 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-sm"
+                                className="flex-1 min-w-0 px-4 py-2 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-400 focus:border-gain-500 font-mono text-sm"
                               />
                               <button
                                 type="button"
                                 onClick={() => removeExercise(index)}
-                                className="p-2 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-slab-850"
+                                className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-slab-850"
                                 aria-label="Remove"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                             {lastStr && (
-                              <span className="text-xs font-mono text-zinc-500 sm:min-w-[8rem] pl-6 sm:pl-0">
+                              <span className="text-xs font-mono text-zinc-400 sm:min-w-[8rem] pl-6 sm:pl-0">
                                 Last: {lastStr}
                               </span>
                             )}
@@ -448,7 +442,7 @@ export default function WorkoutDetail() {
                             value={ex.media_url || ''}
                             onChange={(e) => updateExercise(index, 'media_url', e.target.value)}
                             placeholder="Image or video link (optional)"
-                            className="w-full px-4 py-1.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-gain-500 font-mono text-xs"
+                            className="w-full px-4 py-1.5 bg-slab-850 border border-slab-850 rounded-lg text-zinc-100 placeholder-zinc-400 focus:border-gain-500 font-mono text-xs"
                           />
                         </motion.div>
                       );
@@ -457,6 +451,14 @@ export default function WorkoutDetail() {
                 );
               })()}
             </div>
+            <button
+              type="button"
+              onClick={addExercise}
+              className="mt-3 flex items-center gap-1.5 text-sm text-gain-500 hover:text-gain-400"
+            >
+              <Plus className="w-4 h-4" />
+              Add exercise
+            </button>
           </div>
 
           <div className="flex flex-wrap gap-3 pt-2">
@@ -467,7 +469,7 @@ export default function WorkoutDetail() {
                 createMutation.isLoading ||
                 updateMutation.isLoading
               }
-              className="px-4 py-2.5 bg-gain-500 hover:bg-gain-600 text-slab-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
+              className="px-4 py-2.5 bg-gain-500 hover:bg-gain-600 text-slab-950 font-semibold rounded-lg disabled:opacity-70 transition-colors"
             >
               {isNew(id) ? 'Create' : 'Save'}
             </button>

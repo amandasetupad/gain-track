@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dumbbell, LayoutDashboard, History, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Footer from './Footer';
 
 const nav = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -23,8 +24,8 @@ export default function Layout() {
     <div className="min-h-screen bg-slab-950 flex flex-col">
       <header className="sticky top-0 z-50 border-b border-slab-850 bg-slab-950/90 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
-          <NavLink to="/" className="flex items-center gap-2 text-gain-500 font-semibold tracking-tight hover:text-gain-400 transition-colors">
-            <Dumbbell className="w-6 h-6" aria-hidden />
+          <NavLink to="/" className="flex items-center gap-2 text-gain-500 font-semibold tracking-tight hover:text-gain-400 transition-colors" aria-label="GainTrack home">
+            <Dumbbell className="w-6 h-6" aria-hidden="true" />
             <span className="font-mono">GainTrack</span>
           </NavLink>
           <nav className="hidden sm:flex items-center gap-1">
@@ -44,7 +45,7 @@ export default function Layout() {
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline text-zinc-500 text-sm font-mono truncate max-w-[140px]">
+            <span className="hidden sm:inline text-zinc-400 text-sm font-mono truncate max-w-[140px]">
               {user?.email}
             </span>
             <button
@@ -93,6 +94,7 @@ export default function Layout() {
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <Outlet />
       </main>
+      <Footer />
     </div>
   );
 }

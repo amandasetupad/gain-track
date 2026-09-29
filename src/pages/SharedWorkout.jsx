@@ -6,6 +6,7 @@ import { Dumbbell, LogIn } from 'lucide-react';
 import { api } from '../api/client';
 import ExerciseMedia from '../components/ExerciseMedia';
 import { useAuth } from '../context/AuthContext';
+import Footer from '../components/Footer';
 
 export default function SharedWorkout() {
   const { slug } = useParams();
@@ -42,23 +43,26 @@ export default function SharedWorkout() {
 
   if (error || !workout) {
     return (
-      <div className="min-h-screen bg-slab-950 flex flex-col items-center justify-center px-4">
-        <Dumbbell className="w-12 h-12 text-zinc-600 mb-4" />
-        <h1 className="text-xl font-semibold text-zinc-300 mb-2">Workout not found</h1>
-        <p className="text-zinc-500 text-sm mb-6">This link may be invalid or the workout was removed.</p>
-        <Link to="/" className="text-gain-500 hover:text-gain-400 font-medium">
-          Go to GainTrack
-        </Link>
+      <div className="min-h-screen bg-slab-950 flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <Dumbbell className="w-12 h-12 text-zinc-400 mb-4" aria-hidden="true" />
+          <h1 className="text-xl font-semibold text-zinc-300 mb-2">Workout not found</h1>
+          <p className="text-zinc-400 text-sm mb-6">This link may be invalid or the workout was removed.</p>
+          <Link to="/" className="text-gain-400 hover:text-gain-300 font-medium">
+            Go to GainTrack
+          </Link>
+        </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slab-950">
+    <div className="min-h-screen bg-slab-950 flex flex-col">
       <header className="border-b border-slab-850 bg-slab-950/90 backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-gain-500 font-semibold">
-            <Dumbbell className="w-6 h-6" />
+          <Link to="/" className="flex items-center gap-2 text-gain-500 font-semibold" aria-label="GainTrack home">
+            <Dumbbell className="w-6 h-6" aria-hidden="true" />
             <span className="font-mono">GainTrack</span>
           </Link>
           {!user ? (
@@ -70,14 +74,14 @@ export default function SharedWorkout() {
               Sign in
             </Link>
           ) : (
-            <span className="text-xs text-zinc-500 font-mono truncate max-w-[160px]">
+            <span className="text-xs text-zinc-400 font-mono truncate max-w-[160px]">
               Signed in as {user.email}
             </span>
           )}
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -86,7 +90,7 @@ export default function SharedWorkout() {
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
               <h1 className="text-xl font-bold text-zinc-100 font-mono">{workout.name}</h1>
-              <p className="text-sm text-zinc-500 mt-0.5">Shared workout</p>
+              <p className="text-sm text-zinc-400 mt-0.5">Shared workout</p>
             </div>
             {user && (
               <button
@@ -106,7 +110,7 @@ export default function SharedWorkout() {
                 className="flex flex-col gap-1 py-2.5 px-3 rounded-lg bg-slab-850/50 text-zinc-200 font-mono text-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-zinc-500 w-6">{i + 1}.</span>
+                  <span className="text-zinc-400 w-6">{i + 1}.</span>
                   {ex.name}
                 </div>
                 <ExerciseMedia url={ex.media_url} size="sm" alt={ex.name} />
@@ -115,7 +119,7 @@ export default function SharedWorkout() {
           </ul>
 
           {workout.exercises?.length === 0 && (
-            <p className="text-zinc-500 text-sm">No exercises in this routine.</p>
+            <p className="text-zinc-400 text-sm">No exercises in this routine.</p>
           )}
 
           {saveError && (
@@ -123,6 +127,7 @@ export default function SharedWorkout() {
           )}
         </motion.div>
       </main>
+      <Footer />
     </div>
   );
 }

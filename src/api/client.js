@@ -1,11 +1,11 @@
 // --- Sign-up / API URL fix ---
 const GAINTRACK_BUILD = '2024-03-signup-fix-v1';
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   console.log('[GainTrack]', GAINTRACK_BUILD, '— if you see this, the latest build is loaded. If sign-up still fails, check that the POST request in Network tab goes to https://gain-track.onrender.com');
 }
 const PRODUCTION_BACKEND_URL = 'https://gain-track.onrender.com';
 const API_PATH = '/api';
-const DEBUG = true;
+const DEBUG = import.meta.env.DEV;
 
 function getBase() {
   if (typeof window === 'undefined') return PRODUCTION_BACKEND_URL + API_PATH;
@@ -41,8 +41,15 @@ function headers(includeAuth = true) {
 export const MSG_BACKEND_NOT_CONFIGURED =
   "Sign up won't work until the backend is set. In Vercel: add env var VITE_API_URL = your backend URL (e.g. https://your-app.onrender.com), then redeploy. Deploy the backend first (e.g. on Render.com).";
 
+export const MSG_BACKEND_WAKING =
+  'Waking the server… Render’s free tier can take about a minute after idle. Hang on.';
+
 export const MSG_BACKEND_UNAVAILABLE =
-  'Cannot reach the server. On Render free tier the backend may take up to a minute to wake up. Wait and try again.';
+  'Cannot reach the server. The backend may still be waking up (about a minute on Render’s free tier) or it may be down. Wait and try again.';
+
+export const AUTH_TIMEOUT_MS = 25_000;
+export const WAKE_TIMEOUT_MS = 75_000;
+export const AUTH_RETRY_TIMEOUT_MS = 35_000;
 
 export function getApiBase() {
   return getBase();
@@ -54,12 +61,23 @@ export async function fetchWithTimeout(url, options = {}, ms = 20000) {
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (err) {
-    if (err.name === 'AbortError') {
-      throw { status: 0, error: MSG_BACKEND_UNAVAILABLE };
-    }
-    throw { status: 0, error: MSG_BACKEND_UNAVAILABLE };
+    throw {
+      status: 0,
+      error: MSG_BACKEND_UNAVAILABLE,
+      timeout: err?.name === 'AbortError',
+    };
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/** Ping /health to wake a sleeping Render instance. Resolves true if the process answered. */
+export async function wakeBackend(ms = WAKE_TIMEOUT_MS) {
+  try {
+    const res = await fetchWithTimeout(`${getBase()}/health`, { method: 'GET' }, ms);
+    return res.ok || res.status === 503;
+  } catch {
+    return false;
   }
 }
 
